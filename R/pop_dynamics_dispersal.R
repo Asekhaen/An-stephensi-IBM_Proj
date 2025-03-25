@@ -122,7 +122,7 @@ dispersal <- function(pop, dispersal_matrix) {
   return(pop)
 }
 
-disperesed_pop <- dispersal(pop = grown_state, dispersal_matrix = dispersal_matrix)
+dispersed_pop <- dispersal(pop = grown_state, dispersal_matrix = dispersal_matrix)
 
 # Dispersal function, updates population based on dispersal probabilities (Deterministic)
 
