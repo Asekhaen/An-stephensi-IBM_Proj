@@ -18,12 +18,12 @@ set.seed(21032025)
 
 patches <- 5                        # Number of patches
 n_per_patch <- c(500, 
-                 250, 
+                 150, 
                  10, 
-                 10, 
-                 10)                # Initial number of individuals per patch
+                 5, 
+                 5)                # Initial number of individuals per patch
 
-dispersal_frac <- 0.01              # Base dispersal rate (adjust this if necessary)
+dispersal_frac <- 0.02              # Base dispersal rate (adjust this if necessary)
 daily_survival <- c(egg = 0.8,      # daily survival prob
                     larva = 0.8, 
                     pupa = 0.8, 
@@ -34,7 +34,7 @@ daily_transition <- c(egg = 0.55,
 growth_rate <- 5                    # Number of offspring per day per female mosquitoe 
 #carry_k <- 50000                    # Carrying capacity
 mate_prob <- 0.65                   # Probability of mating
-sim_days <- 100                     # Number of simulation in days
+sim_days <- 20                     # Number of simulation in days
 bloodmeal_prob <- 0.65              # Probability that a female find a blood meal
 
 
@@ -67,6 +67,8 @@ ini_pop <- function(patches, n_per_patch) {
 # # Check
 pop <- ini_pop(patches, n_per_patch)
 
+#sum((sapply(pop, nrow)))
+
 
 ############################################
 #      GROWTH (including reproduction)     #
@@ -76,8 +78,8 @@ pop <- ini_pop(patches, n_per_patch)
 growth <- function(pop_patches, 
                    mate_prob, 
                    bloodmeal_prob, 
-                   growth_rate, 
-                   daily_survival, 
+                   growth_rate,
+                   daily_survival,
                    daily_transition) { 
   
   updated_pop_patches <- list()
@@ -85,11 +87,12 @@ growth <- function(pop_patches,
   for (i in seq_along(pop_patches)) {
     pop <- pop_patches[[i]]  
     
-    n_fem <- pop |> filter(sex == 1, stage == "adult")        # All females
+    n_fem <- pop |> filter(sex == 1, stage == "adult")       # All females
     mated_fem <- rbinom(1, nrow(n_fem), mate_prob)           # All mated females
-    bloodfed_fem <- rbinom(1, mated_fem, bloodmeal_prob) # Probability that a female finds a blood meal
+    bloodfed_fem <- rbinom(1, mated_fem, bloodmeal_prob)     # Probability that a female finds a blood meal
 
-    n_offspring <- rpois(1, bloodfed_fem * growth_rate)  
+    exp_offspring <- bloodfed_fem * growth_rate
+    n_offspring <- rpois(1, exp_offspring)  
     
     offspring <- tibble()
     
@@ -97,17 +100,17 @@ growth <- function(pop_patches,
       
         offspring <- tibble(
         patch = pop$patch[1],
-        sex = rbinom(n_offspring, 1, 0.5),  
+        sex = rbinom(1, n_offspring, 0.5),  
         stage = rep("egg", n_offspring),
         alive = TRUE,
         x = pop$x[1],
         y = pop$y[1]
      )
-        pop <- bind_rows(pop, offspring)
-        
-    }
     
-   
+    
+    pop <- bind_rows(pop, offspring)
+      
+    }
     # Probability of survival in each time step  
     pop <- pop |>
       mutate(
@@ -122,20 +125,21 @@ growth <- function(pop_patches,
    
      # stage transition probability per time step 
       pop <- pop |>
-      mutate(stage = case_when(
+      mutate(
+        stage = case_when(
         stage == "egg" & rbinom(n(), 1, daily_transition["egg"]) == 1 ~ "larva",
         stage == "larva" & rbinom(n(), 1, daily_transition["larva"]) == 1 ~ "pupa",
         stage == "pupa" & rbinom(n(), 1, daily_transition["pupa"]) == 1 ~ "adult",
         .default = stage)
       )
     
-    pop <- pop |> filter(alive)
-    
+    pop <- filter(pop, alive)
+      
     updated_pop_patches[[i]] <- pop
   }
-  
   return(updated_pop_patches)
 }
+  
 
 
 # # check
@@ -146,7 +150,7 @@ grown_pop <- growth(pop_patches = pop,
                    daily_survival = daily_survival,
                    daily_transition = daily_transition)
 
-
+sum((sapply(grown_pop, nrow)))
 
 ###########################################
 #                DISPERSAL                #
@@ -157,39 +161,44 @@ source("R/dispersal_matrix.R")
 
 
 dispersal <- function(pop, dispersal_matrix) {
- 
+
    dispersed_pop <- pop
-   
+
   for (i in 1:length(pop)) {
     patch <- pop[[i]]
-    
-    # adults in the patch capable of dispersing 
-    adults <- patch |> filter(stage == "adult" & alive == TRUE) 
-    
+
+    # adults in the patch capable of dispersing
+    adults <- patch |> filter(stage == "adult" & alive == TRUE)
+
     # If there are no adults, skip dispersal for this patch
     if (nrow(adults) == 0) next
     
+    # Get the dispersal probabilities for this individual according to the dispersal matrix
+    dispersal_probs <- dispersal_matrix[i,]
+
     for (j in 1:nrow(adults)) {
-      # Get the dispersal probabilities for this individual according to the dispersal matrix
-      dispersal_probs <- dispersal_matrix[i,]
+
+      individual <- adults[j, ]
       
-      # Choose the destination patch based on the dispersal probabilities (dispersal matrix)
-      new_patch <- sample(1:length(pop), size = 1, prob = dispersal_probs)
+      # Use multinomial distribution to sample a new patch
+      new_patch_index <- which(rmultinom(1, 1, dispersal_probs) == 1)
       
-      # Move the individual to the new patch (this is keeping track of the 
-      # movement and not modifying the actual data here)
-      dispersed_pop[[new_patch]] <- bind_rows(dispersed_pop[[new_patch]], adults[j,])
+      # Add the individual to the selected new patch
+      dispersed_pop[[new_patch_index]] <- rbind(dispersed_pop[[new_patch_index]], individual)
       
-      # Remove the individual from the current patch (if they moved)
-      pop[[i]] <- pop[[i]] |> filter(row_number() != j)
+      # Remove the individual from the original patch
+      dispersed_pop[[i]] <- dispersed_pop[[i]][!rownames(dispersed_pop[[i]]) %in% rownames(adults)[j], ]
     }
   }
   return(dispersed_pop)
 }
 
 
+
 # # check
 disp_pop <- dispersal(grown_pop, dispersal_matrix)
+
+sum((sapply(disp_pop, nrow)))
 
 
 ###########################################
@@ -225,7 +234,7 @@ simulation <- function(patches,
                   daily_transition)
 
     # Dispersal
-    pop <- Dispersal(pop, dispersal_matrix)
+    pop <- dispersal(pop, dispersal_matrix)
     
     
 
@@ -267,8 +276,7 @@ sim <- simulation(patches = 5,
                   growth_rate = growth_rate, 
                   daily_survival = daily_survival, 
                   daily_transition = daily_transition,
-                  sim_days = 10)
-
+                  sim_days = 20)
 
 
 
