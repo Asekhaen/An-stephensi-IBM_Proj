@@ -1,0 +1,71 @@
+---
+title: "Mathematical description of the compartmental model"
+output: html_document
+date: "2025-03-27"
+---
+
+The initial population size at time t = 0 and location x is given by, $N_{t,x} = k$, where $k$ is the carrying capacity of a patch. Allele frequencies for each locus, $l$, in the first time step and location are drawn from a binomial distribution with probabilities $p_0$ and population size $2k$:
+
+$$
+p_{t, i, l} \sim \text{Binomial}(2k, p_0)/2k.
+$$
+
+Where $p_0$ is the initial allele frequency.
+
+The number of females, $f_{t, x}$ at each location is drawn from a binomial distribution assuming an equal sex ratio:
+
+$$
+f_{t, x} \sim \text{Binomial}(N_{t,x}, \frac{1}{2}).
+$$
+
+Following the determination of the number of females, we compute the number of offspring produced at location x as:
+
+$$
+N'_{t,x} \sim \text{Poisson}(fr),
+$$
+where $r$ is the reproductive rate.  We assume all adults die.
+
+The pre-selection allele frequencies at each locus for this new generation are then given by:
+
+$$
+p'_{t,x,l} \sim \text{Binomial}(2N'_{t,x}, p_{t,x,l})/2N'_{t, x}.
+$$
+We then allow individuals that are homozygous at any locus (thus expressing lethal recessives) to die.  This affects both the number of surviving offspring, and the resultant allele frequencies.
+
+Expected survival probability is given as:
+
+$$
+s_{t, x} = \prod_l(1-p^2_{t, x, l}),
+$$
+leading to realised (stochastic) survival as a draw from another binomial distribution:
+
+$$
+N''{t,x} \sim \text{Binomial}(N'_{t,x}, s_{t,x}).
+$$
+
+We treat selection as deterministic and update the allele frequency at each locus according to:
+
+$$
+p''_{t,x,l} = \frac{2p'_{t,x,l}(1-p'_{t,x,l})}{1-p'^2_{t,x,l}}
+$$
+We then allow dispersal to occur to generate our final values of $N$ and $p$ in the next generation at each location.
+
+We treat dispersal as a deterministic nearest-neighbour process, such that
+
+$$
+\mathbf{\vec N}_{t+1} = \mathbf{M}\mathbf{\vec N''}_{t}, 
+$$
+where $\mathbf{\vec N''}_{t}$ is the column vector of population sizes across space, and $\mathbf{M}$ is the dispersal transition matrix defining nearest neighbour dispersal (with reflecting boundaries, and an emigration probability of $m$) in 1-dimensional space.
+
+Although we treat dispersal as a deterministic process, we assume a stochastic sampling of alleles during the dispersal process, such that the allele frequencies in emmigrants is given by,
+
+$$
+p'''_{t,x,l} \sim \text{Binomial}(2mN''_{t,x}, p''_{t,x,l})/2mN''_{t,x}.
+$$
+
+This allows us to calculate allele frequencies for each locus in the next generation as:
+
+$$
+\mathbf{\vec p}_{t+1, l} = \frac{\mathbf{M}(\mathbf{\vec N''_t} \odot \mathbf{\vec p'''_{t,l}})}{\mathbf{M \vec N''_t}},
+$$
+where $\mathbf{\vec p}_{t+1, l}$ is the vector of allele frequencies across space for a given locus, and $\odot$ is the Hadamard product. 
