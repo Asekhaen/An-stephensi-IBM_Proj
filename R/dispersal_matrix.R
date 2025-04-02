@@ -1,12 +1,10 @@
 # dispersal matrix 
 
-dispersal_frac <- 0.2    # Base dispersal rate (adjust this if necessary)
-
 dist_matrix <- as.matrix(dist(coords, method = "euclidean"))
 
 
 # create exponential dispersal kernel using the distance matrix. 
-lambda <- 5 # range 
+lambda <- 2 # range 
 
 dispersal_kernel <- exp(-lambda * dist_matrix)
 
@@ -28,3 +26,4 @@ rel_dispersal_matrix <- sweep(dispersal_kernel, 1,
 # and add back the probability of remaining
 dispersal_matrix <- dispersal_frac * rel_dispersal_matrix +
   (1 - dispersal_frac) * diag(nrow(dispersal_kernel))
+
