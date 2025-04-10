@@ -106,8 +106,10 @@ growth <- function(pop_patches,
       
     
     # Genetic inheritance and drive conversion
-
     if (n_offspring > 0) {
+      #if (i==3) browser()
+      if (nrow(n_male$allele1) == 0) next # John to check
+      if (nrow(n_fem$allele1) == 0) next
       allele1_offspring <- matrix(sample(c(n_fem$allele1, n_fem$allele2), n_offspring * n_loci, replace = TRUE), ncol = n_loci)
       allele2_offspring <- matrix(sample(c(n_male$allele1, n_male$allele2), n_offspring * n_loci, replace = TRUE), ncol = n_loci)
 
@@ -298,7 +300,7 @@ simulation <- function(patches,
   for (day in 1:sim_days) {
     cat("Day", day, "Completed\n")
     
-    
+    if (day==14) browser()
     # Growth with reproduction
     pop <- growth(pop_patches = pop, 
                   mate_prob, 
@@ -311,7 +313,6 @@ simulation <- function(patches,
                   carry_k)
     
     # Dispersal
-    if(sim_days == 12) {browser()}
     pop <- dispersal(pop, dispersal_matrix)
     
     # Track daily population sizes per patch
