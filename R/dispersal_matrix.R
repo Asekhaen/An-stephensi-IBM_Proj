@@ -4,7 +4,7 @@ dist_matrix <- as.matrix(dist(coords, method = "euclidean"))
 
 
 # create exponential dispersal kernel using the distance matrix. 
-lambda <- 2 # range 
+lambda <- 10 # range 
 
 dispersal_kernel <- exp(-lambda * dist_matrix)
 
