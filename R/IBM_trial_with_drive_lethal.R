@@ -15,7 +15,8 @@ library(tidyverse)
 #               PARAMETERS                #
 ###########################################
 
-set.seed(04042025)
+#set.seed(04042025)
+#set.seed(04042022)
 
 
 source("R/parameters.R")
@@ -42,7 +43,7 @@ ini_pop <- function(patches, n_per_patch, coords, loci) {
       alive = TRUE,
       x = rep(coords$x[i], n_per_patch[i]),
       y = rep(coords$y[i], n_per_patch[i]),
-      allele1 = matrix(sample(c(0, 1), n_per_patch[i] * n_loci, replace = TRUE, prob = c(0.95,0.05)), ncol = n_loci,), # 0 = wild-type, 1 = drive allele
+      allele1 = matrix(sample(c(0, 1), n_per_patch[i] * n_loci, replace = TRUE, prob = c(0.8,0.2)), ncol = n_loci,), # 0 = wild-type, 1 = drive allele
       allele2 = matrix(sample(c(0, 1), n_per_patch[i] * n_loci, replace = TRUE, prob = c(1,0)), ncol = n_loci)
     )
   }
@@ -221,8 +222,8 @@ source("R/dispersal_matrix.R")
 #  Dispersal function 
 
 dispersal <- function(pop, dispersal_matrix) {
-  
-  dispersed_pop <- pop
+
+    dispersed_pop <- pop
   
   for (i in 1:length(pop)) {
     patch <- pop[[i]]
@@ -244,7 +245,7 @@ dispersal <- function(pop, dispersal_matrix) {
       new_patch_index <- which(rmultinom(1, 1, dispersal_probs) == 1)
       
       # Add the individual to the selected new patch
-      dispersed_pop[[new_patch_index]] <- rbind(dispersed_pop[[new_patch_index]], individual)
+      dispersed_pop[[new_patch_index]] <- bind_rows(dispersed_pop[[new_patch_index]], individual) 
       
       # Update the coordinates of the individual to match the new patch's coordinates
       dispersed_pop[[new_patch_index]]$x[nrow(dispersed_pop[[new_patch_index]])] <- coords$x[new_patch_index]
@@ -254,7 +255,8 @@ dispersal <- function(pop, dispersal_matrix) {
       dispersed_pop[[new_patch_index]]$patch[nrow(dispersed_pop[[new_patch_index]])] <- new_patch_index
       
       # Remove the individual from the original patch
-      dispersed_pop[[i]] <- dispersed_pop[[i]][!rownames(dispersed_pop[[i]]) %in% rownames(adults)[j], ]
+      dispersed_pop[[i]] <- dispersed_pop[[i]][-which(rownames(dispersed_pop[[i]]) == rownames(adults)[j]), ]
+      
     }
   }
   return(dispersed_pop)
@@ -286,7 +288,7 @@ simulation <- function(patches,
                        carry_k,
                        sim_days,
                        dispersal_matrix) {
-  #browser()
+  
   pop <- ini_pop(patches, n_per_patch, coords, n_loci)
   
   
@@ -309,6 +311,7 @@ simulation <- function(patches,
                   carry_k)
     
     # Dispersal
+    if(sim_days == 12) {browser()}
     pop <- dispersal(pop, dispersal_matrix)
     
     # Track daily population sizes per patch

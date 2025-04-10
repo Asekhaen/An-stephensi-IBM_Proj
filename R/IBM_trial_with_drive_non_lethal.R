@@ -216,7 +216,6 @@ growth <- function(pop_patches,
 source("R/dispersal_matrix.R") 
 
 dispersal <- function(pop, dispersal_matrix) {
-  
   dispersed_pop <- pop
   
   for (i in 1:length(pop)) {
@@ -280,7 +279,6 @@ simulation <- function(patches,
                        sim_days,
                        carry_k,
                        dispersal_matrix) {
-  browser()
   pop <- ini_pop(patches, n_per_patch, coords, n_loci)
   
   patch_sizes <- list()
