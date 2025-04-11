@@ -30,6 +30,10 @@ source("R/parameters.R")
 coords <- as.data.frame(100 * matrix(runif(patches * 2), ncol = 2))
 colnames(coords) <- c("x","y")
 
+# create a dispersal matrix
+dispersal_matrix <- make_dispersal_matrix(coords = coords, 
+                                          lambda = lambda, 
+                                          dispersal_frac = dispersal_frac)
 
 ###########################################
 #            RUN   SIMULATION             #
