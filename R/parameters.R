@@ -1,8 +1,8 @@
 # parameters
 
-patches <- 7                        # Number of patches
+patches <- 6                        # Number of patches
 n_per_patch <- c(500, 250, 250, 0, 0, 0)                 # Initial number of individuals per patch
-
+if (length(n_per_patch) != patches) warning("Initial patch population does not equal specified number of patches")
 daily_survival <- c(egg = 0.8,      # daily survival prob
                     larva = 0.54, 
                     pupa = 0.63, 
