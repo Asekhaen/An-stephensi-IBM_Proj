@@ -25,16 +25,17 @@ growth <- function(pop_patches,
                    n_loci,
                    daily_survival,
                    daily_transition,
-                   carry_k) { 
+                   carry_k) {
+  browser()
   updated_pop_patches <- list()
   
   for (i in seq_along(pop_patches)) {
     pop <- pop_patches[[i]]  
     
-    n_male <- pop |> filter(sex == 0, stage == "adult")       # All females
-    n_fem <- pop |> filter(sex == 1, stage == "adult")            # All females
-    mated_fem <- round(rbinom(1, nrow(n_fem), mate_prob))         # All mated females
-    bloodfed_fem <- round(rbinom(1, mated_fem, bloodmeal_prob))   # Probability that a female finds a blood meal
+    male <- pop |> filter(sex == 0, stage == "adult")       # All females
+    fem <- pop |> filter(sex == 1, stage == "adult")            # All females
+    mated_fem <- rbinom(1, nrow(fem), mate_prob)         # All mated females
+    bloodfed_fem <- rbinom(1, mated_fem, bloodmeal_prob)   # Probability that a female finds a blood meal
     
     exp_offspring <- bloodfed_fem * fecundity
     n_offspring <- rpois(1, exp_offspring)  
@@ -52,17 +53,36 @@ growth <- function(pop_patches,
     #   alive = TRUE,
     #   x = pop$x[1],
     #   y = pop$y[1],
-    #   allele1 = matrix(sample(c(n_fem$allele1, n_fem$allele2), n_offspring * n_loci, replace = TRUE), ncol = n_loci),
-    #   allele2 = matrix(sample(c(n_male$allele1, n_male$allele2), n_offspring * n_loci, replace = TRUE), ncol = n_loci)
+    #   allele1 = matrix(sample(c(fem$allele1, fem$allele2), n_offspring * n_loci, replace = TRUE), ncol = n_loci),
+    #   allele2 = matrix(sample(c(male$allele1, male$allele2), n_offspring * n_loci, replace = TRUE), ncol = n_loci)
     # )
     
     
     # Genetic inheritance and drive conversion
     # if (n_offspring > 0) { 
-    if (n_offspring > 0 && nrow(n_male$allele1) > 0 && nrow(n_male$allele2) > 0) {
-      allele1_offspring <- matrix(sample(c(n_fem$allele1, n_fem$allele2), n_offspring * n_loci, replace = TRUE), ncol = n_loci)
-      allele2_offspring <- matrix(sample(c(n_male$allele1, n_male$allele2), n_offspring * n_loci, replace = TRUE), ncol = n_loci)
+    if (n_offspring > 0 && nrow(male$allele1) > 0 && nrow(male$allele2) > 0) {
+      dams <- slice_sample(fem, n = bloodfed_fem, replace = FALSE) # sample breeding females
+      dams <- slice_sample(dams, n = n_offspring * n_loci, replace = TRUE) |> select(contains("allele")) # assign them randomly to offspring
+      sires <- slice_sample(male, n = n_offspring * n_loci, replace = TRUE) |> select(contains("allele")) # randomly assign sires to offspring
       
+      sample_allele <- function(allele_tibble){
+        select_allele <- rbinom(length(allele_tibble), 1, 0.5) # which dam allele does junior get?
+        allele_tibble$allele1*select_allele + (allele_tibble$allele2)*(1-select_allele)
+      }
+      
+      
+      dam_allele <- sample_allele(dams)
+      sire_allele <- sample_allele(sires)
+      
+      offspring <- tibble(
+        sex = rbinom(n_offspring, 1, 0.5),
+        stage = rep("egg", n_offspring),
+        alive = TRUE,
+        allele1 = dam_allele,
+        allele2 = sire_allele
+      )
+      
+      # conversion 
       for (j in 1:n_offspring) {
         for (k in 1:n_loci) {
           if (allele1_offspring[j, k] == 1) {
@@ -74,16 +94,7 @@ growth <- function(pop_patches,
         }
       }
       
-      offspring <- tibble(
-        #patch = pop$patch[1],
-        sex = rbinom(n_offspring, 1, 0.5),
-        stage = rep("egg", n_offspring),
-        alive = TRUE,
-        #x = pop$x[1],
-        #y = pop$y[1],
-        allele1 = allele1_offspring,
-        allele2 = allele2_offspring
-      )
+      
       
       # Gene drive lethal effect: 100% mortality of individual with homozygous loci
       
