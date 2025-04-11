@@ -18,7 +18,7 @@ library(tidyverse)
 #set.seed(04042025)
 set.seed(04042022)
 
-
+source("R/IBM-functions.R")
 source("R/parameters.R")
 
 
@@ -30,8 +30,6 @@ source("R/parameters.R")
 coords <- as.data.frame(100 * matrix(runif(patches * 2), ncol = 2))
 colnames(coords) <- c("x","y")
 
-source("R/dispersal_matrix.R") 
-source("R/IBM-functions.R")
 
 ###########################################
 #            RUN   SIMULATION             #
