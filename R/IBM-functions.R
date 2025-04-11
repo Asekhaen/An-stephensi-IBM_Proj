@@ -83,6 +83,10 @@ growth <- function(pop_patches,
       )
       
       # conversion 
+      # converted, or not ### UP TO HERE ###
+      converted <- rbinom(length(offspring$allele1), 1, drive_conversion_prob)
+      
+      
       for (j in 1:n_offspring) {
         for (k in 1:n_loci) {
           if (allele1_offspring[j, k] == 1) {
