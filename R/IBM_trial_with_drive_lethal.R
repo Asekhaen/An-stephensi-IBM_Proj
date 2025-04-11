@@ -73,7 +73,6 @@ growth <- function(pop_patches,
                    daily_survival,
                    daily_transition,
                    carry_k) { 
-  
   updated_pop_patches <- list()
   
   for (i in seq_along(pop_patches)) {
@@ -106,8 +105,8 @@ growth <- function(pop_patches,
       
     
     # Genetic inheritance and drive conversion
-
-    if (n_offspring > 0) {
+    # if (n_offspring > 0) { 
+     if (n_offspring > 0 && nrow(n_male$allele1) > 0 && nrow(n_male$allele2) > 0) {
       allele1_offspring <- matrix(sample(c(n_fem$allele1, n_fem$allele2), n_offspring * n_loci, replace = TRUE), ncol = n_loci)
       allele2_offspring <- matrix(sample(c(n_male$allele1, n_male$allele2), n_offspring * n_loci, replace = TRUE), ncol = n_loci)
 
@@ -222,8 +221,7 @@ source("R/dispersal_matrix.R")
 #  Dispersal function 
 
 dispersal <- function(pop, dispersal_matrix) {
-
-    dispersed_pop <- pop
+  dispersed_pop <- pop
   
   for (i in 1:length(pop)) {
     patch <- pop[[i]]
@@ -288,7 +286,6 @@ simulation <- function(patches,
                        carry_k,
                        sim_days,
                        dispersal_matrix) {
-  
   pop <- ini_pop(patches, n_per_patch, coords, n_loci)
   
   
@@ -311,7 +308,6 @@ simulation <- function(patches,
                   carry_k)
     
     # Dispersal
-    if(sim_days == 12) {browser()}
     pop <- dispersal(pop, dispersal_matrix)
     
     # Track daily population sizes per patch

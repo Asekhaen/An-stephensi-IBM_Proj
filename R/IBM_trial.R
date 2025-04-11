@@ -14,7 +14,7 @@ library(tidyverse)
 #               PARAMETERS                #
 ###########################################
 
-set.seed(04042025)
+set.seed(04042022)
 
 
 source("R/parameters.R")
@@ -47,10 +47,10 @@ ini_pop <- function(patches, n_per_patch, coords) {
 }
 
 
-#Check
-pop <- ini_pop(patches, n_per_patch, coords)
-
-sum((sapply(pop, nrow)))
+# #Check
+# pop <- ini_pop(patches, n_per_patch, coords)
+# 
+# sum((sapply(pop, nrow)))
 
 
 ############################################
@@ -145,13 +145,13 @@ growth <- function(pop_patches,
   
 
 # # check
-grown_pop <- growth(pop_patches = pop,
-                    mate_prob = 0.81,
-                   bloodmeal_prob = 0.7,
-                   fecundity = 9,
-                   daily_survival = daily_survival,
-                   daily_transition = daily_transition,
-                   carry_k = 1000)
+# grown_pop <- growth(pop_patches = pop,
+#                    mate_prob = 0.81,
+#                    bloodmeal_prob = 0.7,
+#                    fecundity = 9,
+#                    daily_survival = daily_survival,
+#                    daily_transition = daily_transition,
+#                    carry_k = 1000)
 
 # sum((sapply(grown_pop, nrow)))
 
@@ -189,8 +189,8 @@ dispersal <- function(pop, dispersal_matrix) {
       new_patch_index <- which(rmultinom(1, 1, dispersal_probs) == 1)
 
       # Add the individual to the selected new patch
-      dispersed_pop[[new_patch_index]] <- rbind(dispersed_pop[[new_patch_index]], individual)
-
+      dispersed_pop[[new_patch_index]] <- bind_rows(dispersed_pop[[new_patch_index]], individual) 
+      
       # Update the coordinates of the individual to match the new patch's coordinates
       dispersed_pop[[new_patch_index]]$x[nrow(dispersed_pop[[new_patch_index]])] <- coords$x[new_patch_index]
       dispersed_pop[[new_patch_index]]$y[nrow(dispersed_pop[[new_patch_index]])] <- coords$y[new_patch_index]
@@ -199,7 +199,7 @@ dispersal <- function(pop, dispersal_matrix) {
       dispersed_pop[[new_patch_index]]$patch[nrow(dispersed_pop[[new_patch_index]])] <- new_patch_index
 
       # Remove the individual from the original patch
-      dispersed_pop[[i]] <- dispersed_pop[[i]][!rownames(dispersed_pop[[i]]) %in% rownames(adults)[j], ]
+      dispersed_pop[[i]] <- dispersed_pop[[i]][-which(rownames(dispersed_pop[[i]]) == rownames(adults)[j]), ]
     }
   }
   return(dispersed_pop)
@@ -207,9 +207,9 @@ dispersal <- function(pop, dispersal_matrix) {
 
 
 
-# # check
-disp_pop <- dispersal(pop = grown_pop, dispersal_matrix)
-sum((sapply(disp_pop, nrow)))
+# #check
+# disp_pop <- dispersal(pop = grown_pop, dispersal_matrix)
+# sum((sapply(disp_pop, nrow)))
 
 
 
