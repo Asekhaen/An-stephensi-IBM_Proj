@@ -1,1 +1,1 @@
-A repo to model the invasion and control of Anopheles stephensi using gene drive 
+A repo to simulate the invasion and control of Anopheles stephensi using gene drive 
