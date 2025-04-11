@@ -6,12 +6,9 @@ ini_pop <- function(patches, n_per_patch, coords, loci) {
   
   for (i in 1:patches) {
     patches_pop[[i]] <- tibble(
-      patch = i,
       sex = rbinom(n_per_patch[i], 1, 0.5), # Female == 1, random sex
       stage = sample(c("egg", "larva", "pupa", "adult"), n_per_patch[i], replace = TRUE),
       alive = TRUE,
-      x = rep(coords$x[i], n_per_patch[i]),
-      y = rep(coords$y[i], n_per_patch[i]),
       allele1 = matrix(sample(c(0, 1), n_per_patch[i] * n_loci, replace = TRUE, prob = c(0.8,0.2)), ncol = n_loci,), # 0 = wild-type, 1 = drive allele
       allele2 = matrix(sample(c(0, 1), n_per_patch[i] * n_loci, replace = TRUE, prob = c(1,0)), ncol = n_loci)
     )
@@ -78,12 +75,12 @@ growth <- function(pop_patches,
       }
       
       offspring <- tibble(
-        patch = pop$patch[1],
+        #patch = pop$patch[1],
         sex = rbinom(n_offspring, 1, 0.5),
         stage = rep("egg", n_offspring),
         alive = TRUE,
-        x = pop$x[1],
-        y = pop$y[1],
+        #x = pop$x[1],
+        #y = pop$y[1],
         allele1 = allele1_offspring,
         allele2 = allele2_offspring
       )
@@ -150,43 +147,44 @@ growth <- function(pop_patches,
 }
 
 #  Dispersal function 
-dispersal <- function(pop, dispersal_matrix) {
-  dispersed_pop <- pop
+dispersal <- function(pop, dispersal_matrix, check = FALSE) {
+  #browser()
+  patch_indices <- dispersed_pop <- vector(mode = "list", length = nrow(dispersal_matrix))
   
+  # get new patch indices for each adult
   for (i in 1:length(pop)) {
     patch <- pop[[i]]
     
     # adults in the patch capable of dispersing
-    adults <- patch[patch$stage == "adult" & patch$alive == TRUE, ]
+    ad_subset <- patch$stage == "adult" & patch$alive == TRUE
+    n_adults <- sum(ad_subset)
     
     # If there are no adults, skip dispersal for this patch
-    if (nrow(adults) == 0) next
+    if (n_adults == 0) next
     
     # Get the dispersal probabilities for this individual according to the dispersal matrix
     dispersal_probs <- dispersal_matrix[i,]
-    
-    for (j in 1:nrow(adults)) {
-      
-      individual <- adults[j, ]
-      
-      # Use multinomial distribution to sample a new patch
-      new_patch_index <- which(rmultinom(1, 1, dispersal_probs) == 1)
-      
-      # Add the individual to the selected new patch
-      dispersed_pop[[new_patch_index]] <- bind_rows(dispersed_pop[[new_patch_index]], individual) 
-      
-      # Update the coordinates of the individual to match the new patch's coordinates
-      dispersed_pop[[new_patch_index]]$x[nrow(dispersed_pop[[new_patch_index]])] <- coords$x[new_patch_index]
-      dispersed_pop[[new_patch_index]]$y[nrow(dispersed_pop[[new_patch_index]])] <- coords$y[new_patch_index]
-      
-      # Update the patch number for the dispersed individual
-      dispersed_pop[[new_patch_index]]$patch[nrow(dispersed_pop[[new_patch_index]])] <- new_patch_index
-      
-      # Remove the individual from the original patch
-      dispersed_pop[[i]] <- dispersed_pop[[i]][-which(rownames(dispersed_pop[[i]]) == rownames(adults)[j]), ]
-      
+    ad_within_pop_indices <- which(ad_subset)
+    new_pop_indices <- sample(1:length(dispersal_probs), size = n_adults, replace = TRUE, prob = dispersal_probs)
+    patch_indices[[i]] <- tibble(ad_within_pop_indices, new_pop_indices)
+    dispersed_pop[[i]] <- filter(patch, !ad_subset) # move non-adults to same patch in the future
+  }
+  
+  # move individuals to new patches
+  for (i in 1:length(pop)) {
+    patch <- pop[[i]]
+    adults <- patch[patch_indices[[i]]$ad_within_pop_indices, ]
+    for (jj in 1:length(pop)){
+      ads_jj <- filter(adults, patch_indices[[i]]$new_pop_indices == jj)
+      dispersed_pop[[jj]] <- bind_rows(dispersed_pop[[jj]], ads_jj)
     }
   }
+  if (check){
+    n_pop <- sum(sapply(pop, nrow))
+    n_disp <- sum(sapply(dispersed_pop, nrow))
+    cat(n_pop, " ", n_disp, "\n")
+  }
+  
   return(dispersed_pop)
 }
 
@@ -265,4 +263,6 @@ make_dispersal_matrix <- function(coords, lambda, dispersal_frac) {
   # and add back the probability of remaining
   dispersal_matrix <- dispersal_frac * rel_dispersal_matrix +
     (1 - dispersal_frac) * diag(nrow(dispersal_kernel))
+  
+  return(dispersal_matrix)
 }
