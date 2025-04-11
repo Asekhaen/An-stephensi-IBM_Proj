@@ -83,8 +83,12 @@ growth <- function(pop_patches,
       )
       
       # conversion 
-      # converted, or not ### UP TO HERE ###
-      converted <- rbinom(length(offspring$allele1), 1, drive_conversion_prob)
+      # converted, or not ### CHECK THIS ###
+      converted <- rbinom(length(offspring$allele1), 1, drive_conversion_prob) # converted or not
+      heterozygotes <- (offspring$allele1 + offspring$allele2) == 1
+      conv_event <- converted*heterozygotes # conversion event?
+      offspring$allele1[offspring$allele1 == 0 & conv_event == 1] <- 1 # do the conversions
+      offspring$allele2[offspring$allele2 == 0 & conv_event == 1] <- 1
       
       
       for (j in 1:n_offspring) {
