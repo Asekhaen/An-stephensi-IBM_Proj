@@ -7,8 +7,8 @@ library(tidyverse)
 # TO DO!
 # introduce a functional exponential dispersal model. DONE!
 # implement density-dependence survival at the larval stage. DONE!
-# introduce gene drive. DONE!
-# introduce patch carrying capacity 
+# introduce gene drive. ONGOING!
+# introduce patch carrying capacity (larvae)
 # introduce effect of temperature and humidity on transition/growth and survival
 
 ###########################################
@@ -16,24 +16,12 @@ library(tidyverse)
 ###########################################
 
 #set.seed(04042025)
-set.seed(04042025)
+set.seed(19042025)
 
-source("R/IBM-functions.R")
+# Call functions and parameters 
 source("R/parameters.R")
+source("R/IBM-functions.R")
 
-
-###########################################
-#  INITIALISE POPULATION WITH ATTRIBUTES  #
-###########################################
-
-# create coordinates for the patches/locations 
-coords <- as.data.frame(100 * matrix(runif(patches * 2), ncol = 2))
-colnames(coords) <- c("x","y")
-
-# create a dispersal matrix
-dispersal_matrix <- make_dispersal_matrix(coords = coords, 
-                                          lambda = lambda, 
-                                          dispersal_frac = dispersal_frac)
 
 ###########################################
 #            RUN   SIMULATION             #
