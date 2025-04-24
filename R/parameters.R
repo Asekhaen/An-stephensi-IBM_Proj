@@ -1,7 +1,7 @@
 # parameters
 
 patches <- 10                        # Number of patches
-n_per_patch <- c(1000, 1000, 1000, 1000, 1000, 0, 0, 0, 0, 0)                 # Initial number of individuals per patch
+n_per_patch <- c(100, 100, 100, 100, 100, 0, 0, 0, 0, 0)                 # Initial number of individuals per patch
 daily_survival <- c(egg = 0.8,      # daily survival prob
                     larva = 0.74, 
                     pupa = 0.73, 
@@ -12,7 +12,7 @@ daily_transition <- c(egg = 0.5,
 fecundity <- 10                      # Number of offspring per day per female mosquitoe 
 carry_k <- 10000                     # Carrying capacity
 mate_prob <- 0.75                   # Probability of mating
-sim_days <- 100                     # Number of simulation in days
+sim_days <- 10                     # Number of simulation in days
 bloodmeal_prob <- 0.75              # Probability that a female find a blood meal
 
 # dispersal parameters

@@ -16,8 +16,7 @@ library(tidyverse)
 ###########################################
 
 #set.seed(04042025)
-set.seed(19042025)
-
+set.seed(25042025)
 # Call functions and parameters 
 source("R/parameters.R")
 source("R/IBM-functions.R")

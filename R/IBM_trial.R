@@ -14,7 +14,7 @@ library(tidyverse)
 #               PARAMETERS                #
 ###########################################
 
-set.seed(04042022)
+set.seed(23042025)
 
 
 source("R/parameters.R")
@@ -64,13 +64,15 @@ growth <- function(pop_patches,
                    fecundity,
                    daily_survival,
                    daily_transition,
-                   carry_k) { 
+                   carry_k,
+                   sim_days) { 
+  
+  #if (sim_days == 1) browser()
   
   updated_pop_patches <- list()
   
   for (i in seq_along(pop_patches)) {
     pop <- pop_patches[[i]]  
-    
     n_fem <- pop |> filter(sex == 1, stage == "adult")       # All females
     mated_fem <- round(rbinom(1, nrow(n_fem), mate_prob))           # All mated females
     bloodfed_fem <- round(rbinom(1, mated_fem, bloodmeal_prob))     # Probability that a female finds a blood meal
@@ -99,30 +101,29 @@ growth <- function(pop_patches,
   # Density-dependent survival for larval stage
     larva_count <- sum(pop$stage == "larva")
     # density_dependent_survival <- daily_survival["larva"] * (1 - (larva_count / carry_k))
-    
     density_dependence <- 1 - larva_count / carry_k
     density_dependence <- max(density_dependence, 0)
     density_dependent_survival <- daily_survival["larva"] * density_dependence
     
     # Probability of survival in each time step (this approach produced NAs 
     # because of patches with empty stages) 
-    # pop <- pop |> mutate(
-    #     alive = case_when(
-    #       stage == "egg" ~ rbinom(n(), 1, daily_survival["egg"]),
-    #       stage == "larva" ~ rbinom(n(), 1, density_dependent_survival),
-    #       stage == "pupa" ~ rbinom(n(), 1, daily_survival["pupa"]),
-    #       stage == "adult" ~ rbinom(n(), 1, daily_survival["adult"]),
-    #     ),
-    #     alive = alive == 1
-    #   )
+    pop <- pop |> mutate(
+        alive = case_when(
+          stage == "egg" ~ rbinom(n(), 1, daily_survival["egg"]),
+          stage == "larva" ~ rbinom(n(), 1, density_dependent_survival),
+          stage == "pupa" ~ rbinom(n(), 1, daily_survival["pupa"]),
+          stage == "adult" ~ rbinom(n(), 1, daily_survival["adult"]),
+        ),
+        alive = alive == 1
+      )
    
-    pop <- pop |>
-      mutate(alive = case_when(
-        stage == "egg" ~ runif(n()) < daily_survival["egg"],
-        stage == "larva" ~ runif(n()) < density_dependent_survival,
-        stage == "pupa" ~ runif(n()) < daily_survival["pupa"],
-        stage == "adult" ~ runif(n()) < daily_survival["adult"]
-      ) & alive)
+    # pop <- pop |>
+    #   mutate(alive = case_when(
+    #     stage == "egg" ~ runif(n()) < daily_survival["egg"],
+    #     stage == "larva" ~ runif(n()) < density_dependent_survival,
+    #     stage == "pupa" ~ runif(n()) < daily_survival["pupa"],
+    #     stage == "adult" ~ runif(n()) < daily_survival["adult"]
+    #   ) & alive)
 
     
      # stage transition probability per time step 
@@ -163,7 +164,7 @@ growth <- function(pop_patches,
 
 # build a function for distance matrix based of on the population x & y coords.
 
-source("R/dispersal_matrix.R") 
+#source("R/dispersal_matrix.R") 
 
 dispersal <- function(pop, dispersal_matrix) {
 
@@ -234,7 +235,7 @@ simulation <- function(patches,
   
   patch_sizes <- list()
   stage_distributions <- list()
-
+ 
   for (day in 1:sim_days) {
     cat("Day", day, "Completed\n")
     
@@ -246,7 +247,8 @@ simulation <- function(patches,
                   fecundity,
                   daily_survival,
                   daily_transition,
-                  carry_k)
+                  carry_k,
+                  sim_days = day)
 
     # Dispersal
     pop <- dispersal(pop, dispersal_matrix)
@@ -259,7 +261,8 @@ simulation <- function(patches,
       table(patch_pop$stage)  
     })
   }
-  
+
+
   # Return the collected data
   list(
     patch_sizes = patch_sizes,

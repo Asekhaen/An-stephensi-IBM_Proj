@@ -34,12 +34,15 @@ growth <- function(pop_patches,
                    n_loci,
                    daily_survival,
                    daily_transition,
-                   carry_k) {
+                   carry_k,
+                   sim_days) {
+  if (sim_days == 2) browser()
+  
   updated_pop_patches <- list()
   
   for (i in seq_along(pop_patches)) {
     pop <- pop_patches[[i]]  
-    
+
     male <- pop |> filter(sex == 0, stage == "adult")    # All males
     fem <- pop |> filter(sex == 1, stage == "adult")     # All females
     mated_fem <- rbinom(1, nrow(fem), mate_prob)         # All mated females
@@ -76,17 +79,22 @@ growth <- function(pop_patches,
         return(parent)
       }
       
-      dams <- drive_conversion(dams, drive_conversion_prob)   # dams with drive coverted germline
-      sires <- drive_conversion(sires, drive_conversion_prob) # sires with drive coverted germline
+      dams <- drive_conversion(dams, drive_conversion_prob)   # dams with drive converted germ line
+      sires <- drive_conversion(sires, drive_conversion_prob) # sires with drive converted germ line
       
-      #browser()
       sample_allele <- function(allele_tibble){
-        select_allele <- rbinom(length(allele_tibble), 1, 0.5) # which dam allele does junior get?
+        select_allele <- rbinom(length(allele_tibble), 1, 0.5) # which dam allele does each offspring get?
         allele_tibble$allele1*select_allele + (allele_tibble$allele2)*(1-select_allele)
       }
       
       
-        offspring <- tibble(
+      sample_allele <- function(dams){
+        select_allele <- rbinom(length(dams), 1, 0.5) # which dam allele does junior get?
+        dams$allele1*select_allele + (dams$allele2)*(1-select_allele)
+      }
+       
+     
+      offspring <- tibble(
         sex = rbinom(n_offspring, 1, 0.5),
         stage = rep("egg", n_offspring),
         alive = TRUE,
@@ -97,9 +105,7 @@ growth <- function(pop_patches,
      # Gene drive lethal effect: mortality of offspring with any homozygous locus)
 
       # homozygous <- (offspring$allele1 == 1) & (offspring$allele2 == 1)
-      # 
       # offspring$alive[rowSums(homozygous) > 0] <- FALSE
-      # 
       # offspring <- filter(offspring, alive)
 
       
@@ -115,13 +121,23 @@ growth <- function(pop_patches,
     density_dependent_survival <- daily_survival["larva"] * density_dependence
     
 
-    pop <- pop |>
-      mutate(alive = case_when(
-        stage == "egg" ~ runif(n()) < daily_survival["egg"],
-        stage == "larva" ~ runif(n()) < density_dependent_survival,
-        stage == "pupa" ~ runif(n()) < daily_survival["pupa"],
-        stage == "adult" ~ runif(n()) < daily_survival["adult"]
-      ) & alive)
+    # pop <- pop |>
+    #   mutate(alive = case_when(
+    #     stage == "egg" ~ runif(n()) < daily_survival["egg"],
+    #     stage == "larva" ~ runif(n()) < density_dependent_survival,
+    #     stage == "pupa" ~ runif(n()) < daily_survival["pupa"],
+    #     stage == "adult" ~ runif(n()) < daily_survival["adult"]
+    #   ) & alive)
+    #   
+    pop <- pop |> mutate(
+        alive = case_when(
+          stage == "egg" ~ rbinom(n(), 1, daily_survival["egg"]),
+          stage == "larva" ~ rbinom(n(), 1, density_dependent_survival),
+          stage == "pupa" ~ rbinom(n(), 1, daily_survival["pupa"]),
+          stage == "adult" ~ rbinom(n(), 1, daily_survival["adult"]),
+        ),
+        alive = alive == 1
+     )
     
     # stage transition probability per time step 
     pop <- pop |>
@@ -175,7 +191,7 @@ dispersal_matrix <- make_dispersal_matrix(coords = coords,
 
 #### Dispersal function ####
 dispersal <- function(pop, dispersal_matrix, check = FALSE) {
-  #browser()
+ 
   patch_indices <- dispersed_pop <- vector(mode = "list", length = nrow(dispersal_matrix))
   
   # get new patch indices for each adult
@@ -233,10 +249,8 @@ simulation <- function(patches,
                        dispersal_matrix) {
   pop <- ini_pop(patches, n_per_patch, coords, n_loci)
   
-  
   patch_sizes <- list()
   stage_distributions <- list()
-  
   for (day in 1:sim_days) {
     cat("Day", day, "Completed\n")
 
@@ -249,7 +263,8 @@ simulation <- function(patches,
                   n_loci,
                   daily_survival,
                   daily_transition,
-                  carry_k)
+                  carry_k,
+                  sim_days = day)
     
     # Dispersal
     pop <- dispersal(pop, dispersal_matrix)
