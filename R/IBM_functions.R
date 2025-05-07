@@ -30,13 +30,17 @@ growth <- function(pop_patches,
                    mate_prob, 
                    bloodmeal_prob, 
                    fecundity,
-                   drive_conversion_prob,
+                   conversion_prob,
+                   resistance_prob,
                    n_loci,
                    daily_survival,
                    daily_transition,
                    carry_k,
-                   sim_days) {
-  if (sim_days == 2) browser()
+                   sim_days,
+                   daily_temp,
+                   sigma) {
+  
+  #if (sim_days == 5) browser()
   
   updated_pop_patches <- list()
   
@@ -45,96 +49,147 @@ growth <- function(pop_patches,
 
     male <- pop |> filter(sex == 0, stage == "adult")    # All males
     fem <- pop |> filter(sex == 1, stage == "adult")     # All females
-    mated_fem <- rbinom(1, nrow(fem), mate_prob)         # All mated females
-    
-    # # Gene drive non-lethal effect: homozygous individual (females) are sterile
-    # fem_no_drive <- fem |>
+
+    # # Gene drive non-lethal effect:
+    # # female individual homozygous alleles at any locus  are completely sterile
+    # # females with a drive & a non-functional resistant allele are also sterile
+
+    # fertile_fem <- fem |>
     #   filter(apply(fem$allele1 == 1 & fem$allele2 == 1, 1, all) == FALSE)
-    # # All mated females with drive
-    # mated_fem <- round(rbinom(1, nrow(fem_no_drive), mate_prob))         
-    
-    bloodfed_fem <- rbinom(1, mated_fem, bloodmeal_prob)   # Probability that a female finds a blood meal
-    exp_offspring <- bloodfed_fem * fecundity
-    n_offspring <- rpois(1, exp_offspring)  
-    
 
-    
-    # Drive conversion and genetic inheritance 
-    # if (n_offspring > 0) { 
-    if (n_offspring > 0 && nrow(male$allele1) > 0 && nrow(male$allele2) > 0) {
-      dams <- slice_sample(fem, n = bloodfed_fem, replace = FALSE) # sample breeding females (sample rows)
-      dams <- slice_sample(dams, n = n_offspring, replace = TRUE) |> select(contains("allele")) # assign them randomly to offspring
-      sires <- slice_sample(male, n = n_offspring, replace = TRUE) |> select(contains("allele")) # randomly assign sires to offspring
-      
+    # # All mated fertile females
+    # mated_fem <- round(rbinom(1, nrow(fertile_fem), mate_prob))
 
-      # drive conversion 
-      
-      drive_conversion <- function(parent, prob) {
-        converted <- rbinom(length(parent$allele1), 1, prob) # drive conversion at each locus
-        heterozgous <- (parent$allele1 + parent$allele2) == 1
-        conv_event <- converted*heterozgous # conversion event?
-        parent$allele1[parent$allele1 == 0 & conv_event == 1] <- 1 # do the conversions
+    offspring_list <- list()
+    if (nrow(fem) > 0 && nrow(male) > 0)
+      # Loop through each female to simulate mating, bloodfeeding, and egg/ofspring production
+      for (j in 1:nrow(fem)) {
+        
+        # select a mate
+        selected_male_index <- sample(nrow(male), 1, replace = TRUE)
+        selected_male <- male[selected_male_index, ]
+        
+        # Bernoulli trial for mating and feeding (1 if mated, 0 if not)
+        if (rbinom(1, 1, mate_prob) == 1 && rbinom(1, 1, bloodmeal_prob) == 1) {   # Thoughts/To do: mating probability should depend on the number of adult males in the
+          population 
+          # If bloodfed, calculate expected offspring for this female
+          exp_offspring <- fecundity
+          # Draw the actual number of offspring from a Poisson distribution
+          n_offspring <- rpois(1, exp_offspring)
+        } else {
+          # If not, set offspring count to 0
+          n_offspring <- 0
+        }
+        
+        
+        if (n_offspring > 0) {
+          dams_data <- fem[j, ]             # Extract the mother's features
+          sires_data <- selected_male       # Extract the father's features
+          
+          # Replicate the parents features `n_offspring` times for each offspring
+          fem_germline <- dams_data[rep(1, n_offspring), ]
+          male_germline <- sires_data[rep(1, n_offspring), ]
+          
+          # select the genetic characteristcs 
+          
+          male_germline <- male_germline |> select(contains("allele"))
+          fem_germline <- fem_germline |> select(contains("allele"))
+          
+    # Genetic inheritance and Drive conversion
+     
+        drive_conversion <- function(parent, prob1, prob2) {
+        if (any(is.na(parent$allele1)) || any(is.na(parent$allele2))) {
+            warning("NA detected in allele input!")
+          }
+        heterozygous <- (parent$allele1 + parent$allele2) == 1
+        # Drive conversion 95% conversion rate
+        converted <- rbinom(length(parent$allele1), 1, prob1) # drive conversion at each locus
+        conv_event <- converted*heterozygous # conversion event?
+        parent$allele1[parent$allele1 == 0 & conv_event == 1] <- 1 # successful conversions
         parent$allele2[parent$allele2 == 0 & conv_event == 1] <- 1
+        
+        # Resistance development (0 → 2) 
+        failed_conv <- heterozygous & conv_event == 0
+        resistance_event <- rbinom(length(parent$allele1), 1, prob2)
+        parent$allele1[parent$allele1 == 0 & failed_conv & resistance_event == 1] <- 2  # Thoughts/To do: individuals that did not develop resistance, yet heterozygous can be can be designated as those with functional resistance and resistant to future Cas9 cutting 
+        parent$allele2[parent$allele2 == 0 & failed_conv & resistance_event == 1] <- 2
         
         return(parent)
       }
       
-      dams <- drive_conversion(dams, drive_conversion_prob)   # dams with drive converted germ line
-      sires <- drive_conversion(sires, drive_conversion_prob) # sires with drive converted germ line
-      
-      sample_allele <- function(allele_tibble){
-        select_allele <- rbinom(length(allele_tibble), 1, 0.5) # which dam allele does each offspring get?
-        allele_tibble$allele1*select_allele + (allele_tibble$allele2)*(1-select_allele)
-      }
-      
-      
-      sample_allele <- function(dams){
-        select_allele <- rbinom(length(dams), 1, 0.5) # which dam allele does junior get?
-        dams$allele1*select_allele + (dams$allele2)*(1-select_allele)
-      }
-       
-     
-      offspring <- tibble(
-        sex = rbinom(n_offspring, 1, 0.5),
-        stage = rep("egg", n_offspring),
-        alive = TRUE,
-        allele1 = sample_allele(dams),
-        allele2 = sample_allele(sires)
-      )
 
-     # Gene drive lethal effect: mortality of offspring with any homozygous locus)
+        fem_gametes <- drive_conversion(fem_germline, conversion_prob, resistance_prob)   # dams with drive converted germ line
+        male_gametes <- drive_conversion(male_germline, conversion_prob, resistance_prob) # sires with drive converted germ line
+      
+      
+        # Genetic inheritance
+        total_offspring <- nrow(fem_gametes)
+        stopifnot(total_offspring == n_offspring)
+        
+        num_loci <- ncol(fem_gametes$allele1)
+        stopifnot(num_loci == n_loci)
+        
+        # random selection of allele
+        
+        which_allele <- matrix(rbinom(total_offspring * num_loci, 1, 0.5) == 0,
+                               nrow = total_offspring,
+                               ncol = num_loci)
+        
+        #  Determination of offspring features
+        offspring <- tibble(
+          sex = rbinom(n_offspring, 1, 0.5),
+          stage = "egg",
+          alive = TRUE,
+          allele1 = ifelse(which_allele,
+                           fem_gametes$allele1,
+                           fem_gametes$allele2),
+          allele2 = ifelse(which_allele,
+                           male_gametes$allele1,
+                           male_gametes$allele2)
+        )
 
-      # homozygous <- (offspring$allele1 == 1) & (offspring$allele2 == 1)
-      # offspring$alive[rowSums(homozygous) > 0] <- FALSE
+    
+     # Gene drive lethal effect: mortality increases to 100% as homozygous locus reaches max.
+   
+      # homozygous_drive <- (offspring$allele1 == 1) & (offspring$allele2 == 1)
+      # num_drive_homozygous <- rowSums(homozygous_drive)
+      # max_homozygous <- ncol(offspring$allele1)
+      # survival_prob <- 1 - (num_drive_homozygous/max_homozygous)
+      # offspring$alive <- rbinom(n = length(survival_prob), size = 1, prob = survival_prob) == 1
       # offspring <- filter(offspring, alive)
-
       
       # Add offspring to main population
-      pop <- bind_rows(pop, offspring)
-      
-    }
  
+        offspring_list[[length(offspring_list) + 1]] <- offspring
+      }
+  }
+  
+  # Combine all offspring data frames into one final data frame
+  offspring_df <- bind_rows(offspring_list)
+  
+  # add offspring to the main population. 
+  pop <- bind_rows(pop, offspring_df)
+  
+  
+    # Temperature-adjusted survival for larval and adult population
+    
+    temp_effect <- exp(-((daily_temp - 25)^2) / (2 * sigma^2)) # Gaussian process (after Beck-Johnson et al., 2013). 
+    temp_adjusted_survival <- daily_survival[c("adult","larva")] * temp_effect
+    
+    
     # Density-dependent survival for larval stage
     larva_count <- sum(pop$stage == "larva")
     density_dependence <- 1 - larva_count / carry_k
     density_dependence <- max(density_dependence, 0)
-    density_dependent_survival <- daily_survival["larva"] * density_dependence
+    density_dependent_survival <- temp_adjusted_survival["larva"] * density_dependence
     
 
-    # pop <- pop |>
-    #   mutate(alive = case_when(
-    #     stage == "egg" ~ runif(n()) < daily_survival["egg"],
-    #     stage == "larva" ~ runif(n()) < density_dependent_survival,
-    #     stage == "pupa" ~ runif(n()) < daily_survival["pupa"],
-    #     stage == "adult" ~ runif(n()) < daily_survival["adult"]
-    #   ) & alive)
-    #   
     pop <- pop |> mutate(
         alive = case_when(
           stage == "egg" ~ rbinom(n(), 1, daily_survival["egg"]),
           stage == "larva" ~ rbinom(n(), 1, density_dependent_survival),
           stage == "pupa" ~ rbinom(n(), 1, daily_survival["pupa"]),
-          stage == "adult" ~ rbinom(n(), 1, daily_survival["adult"]),
+          stage == "adult" ~ rbinom(n(), 1, temp_adjusted_survival["adult"]),
         ),
         alive = alive == 1
      )
@@ -158,11 +213,13 @@ growth <- function(pop_patches,
 }
 
 
+
 #### Make dispersal matrix ####
 make_dispersal_matrix <- function(coords, lambda, dispersal_frac) {
   # dispersal matrix 
   dist_matrix <- as.matrix(dist(coords, method = "euclidean"))
   
+  #exponential dispersal kernel
   dispersal_kernel <- exp(-lambda * dist_matrix)
   
   # set the diagonal elements to 0 to prevent self-dispersal
@@ -241,17 +298,21 @@ simulation <- function(patches,
                        mate_prob, 
                        bloodmeal_prob, 
                        fecundity, 
-                       drive_conversion_prob,
+                       conversion_prob,
+                       resistance_prob,
                        daily_survival, 
                        daily_transition,
                        carry_k,
                        sim_days,
-                       dispersal_matrix) {
+                       dispersal_matrix,
+                       daily_temp,
+                       sigma) {
   pop <- ini_pop(patches, n_per_patch, coords, n_loci)
   
   patch_sizes <- list()
   stage_distributions <- list()
   for (day in 1:sim_days) {
+    #if (day == 6) browser()
     cat("Day", day, "Completed\n")
 
     # Growth with reproduction
@@ -259,12 +320,15 @@ simulation <- function(patches,
                   mate_prob, 
                   bloodmeal_prob, 
                   fecundity,
-                  drive_conversion_prob,
+                  conversion_prob,
+                  resistance_prob,
                   n_loci,
                   daily_survival,
                   daily_transition,
                   carry_k,
-                  sim_days = day)
+                  sim_days = day,
+                  daily_temp = temp[day],
+                  sigma)
     
     # Dispersal
     pop <- dispersal(pop, dispersal_matrix)
