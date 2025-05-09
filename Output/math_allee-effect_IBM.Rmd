@@ -14,31 +14,28 @@ We develop a spatially-explicit individual-based model (IBM) in discrete space a
 Whether or not a female reproduces in a given time period ($R_{i(\female), j, t}$) depends upon a chain of events.  Each adult female can potentially mate with any adult male present in the patch, and this occurs with some probability $m$ given at least one adult male is present in the patch.  Whether this mating then goes on to the successful production of eggs is also probabilistic, and depends on the female acquiring a bloodmeal, which we treat as occurring with probability, $b$.  Thus:
 
 $$
-R_{i(\female),j,t} \sim \text{Bernoulli}(bm)
+R_{i \in \female,j,t} \sim \text{Bernoulli}(bm)
 $$
 
 For each reproducing female, the number of eggs/offspring produced per day is drawn from a Poisson distribution: 
 
 $$
-O_{i(\female), j, t} \sim \text{Poisson}(f R_{i(\female),j,t})
+O_{i \in \female, j, t} \sim \text{Poisson}(f R_{i \in \female,j,t})
 $$
 where $f$ is the daily female fecundity.
 
 
 ## Stage Development
 
-Transition or developmental growth ($D_{i(s),j,t}$) through the different stages $S$ of an individual ($i$) (i.e. egg → larva → pupa → adult) occurs according to a daily stage-specific $s$ transition probability. 
+Each individual carries a variable denoting the individual's stage, $S_i \in \{egg, larva, pupa, adult\}$. Individuals transition between developmental stages according to stage-specific transition probabilities, $\vec{g}$, which records transition probabilities $\{g_{egg \rightarrow larva}, g_{larva \rightarrow pupa}, g_{pupa \rightarrow adult}, g_{adult \rightarrow adult}\}$ where $g_{adult \rightarrow adult} = 1$. Individual transition is stochastic, with realised transitions occurring as a draw from a Bernoulli distribution, according to:  
 
 $$
-D_{i(s),j,t} \sim\text{Bernoulli}(d_{(s)})
+D_{i,j,t} \sim\text{Bernoulli}(\vec{g}_{S_i}).
 $$
-where $s\in S$ and $S = {egg, larva, pupa, adult}$ 
 
+## Daily survival
 
-
-## Survival
-
-Survival is modelled daily for each individual. It is stage-specific and governed by both intrinsic and extrinsic factors. Intrinsic survival $V$ is the baseline probability $v$ that an individual in any a given location survives regardless of environmental influences and its stage-specific. 
+Survival is stage-specific and governed by both intrinsic and extrinsic factors. Intrinsic survival $V$ is the baseline probability $v$ that an individual in any a given location survives regardless of environmental influences and its stage-specific. 
 $$
 V_{i(s),j,t} \sim\text{Bernoulli}(v_{(s)})
 $$
