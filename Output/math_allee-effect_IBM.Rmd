@@ -1,8 +1,8 @@
 ---
 title: "Mathematical description of the IBM"
 output:
-  pdf_document: default
   html_document: default
+  pdf_document: default
 date: "2025-05-09"
 header-includes: \usepackage{wasysym}
 ---
@@ -17,6 +17,7 @@ $$
 R_{i \in \female,j,t} \sim \text{Bernoulli}(bm)
 $$
 
+
 For each reproducing female, the number of eggs/offspring produced per day is drawn from a Poisson distribution: 
 
 $$
@@ -30,13 +31,65 @@ where $f$ is the daily female fecundity.
 Each individual carries a variable denoting the individual's stage, $S_i \in \{egg, larva, pupa, adult\}$. Individuals transition between developmental stages according to stage-specific transition probabilities, $\vec{g}$, which records transition probabilities $\{g_{egg \rightarrow larva}, g_{larva \rightarrow pupa}, g_{pupa \rightarrow adult}, g_{adult \rightarrow adult}\}$ where $g_{adult \rightarrow adult} = 1$. Individual transition is stochastic, with realised transitions occurring as a draw from a Bernoulli distribution, according to:  
 
 $$
-D_{i,j,t} \sim\text{Bernoulli}(\vec{g}_{S_i}).
+D_{i,j,t} \sim\text{Bernoulli}(\vec{g}_{S_i})
 $$
 
 ## Daily survival
 
-Survival is stage-specific and governed by both intrinsic and extrinsic factors. Intrinsic survival $V$ is the baseline probability $v$ that an individual in any a given location survives regardless of environmental influences and its stage-specific. 
+Survival is governed by both intrinsic and extrinsic factors. Intrinsic survival is the baseline survival influenced by the individual's internal mechanisms (e.g. biology, and genetics). For each individual the baseline survival according to it's stage as previously described $S_i \in \{egg, larva, pupa, adult\}$ is given by stage-specific survival probabilities $\vec{g} = {v_{egg}, v_{larva}, v_{pupa}, v_{adult}}$ and drawn from Bernoulli trial: 
+
 $$
-V_{i(s),j,t} \sim\text{Bernoulli}(v_{(s)})
+V_{i,j,t} \sim\text{Bernoulli}(\vec{g}_{S_i})
 $$
-Whereas, survival based on external influences such as predation, resources limitation and competition, etc. is captured through density-dependent survival and temperature-adjusted survival as shown below. 
+conversely, extrinsic survival, influenced by external cues such as extreme temperature, predation, resource limitation and competition, etc., is captured through temperature-dependent and density-dependent survival.  
+
+Temperature-dependent survival $V_{i,j,t} (T)$ is given below as:
+
+
+$$
+V_{i,j,t} (T) \sim\text{Bernoulli}(\vec{g}_{S_i} T)
+
+$$
+where $T$ is the factor that control the effect of daily temperature fluctuations on survival:
+
+$$
+T= e^{-\frac{(T_{\text{daily}} - T_{\text{opt}})^2}{2\sigma^2}}
+$$
+where, $T_{\text{daily}}$, is the daily temperature, $T_{\text{opt}}$ the optimum surviving temperature, and $\sigma$ is a factor that controls how steep survival respond to temperature changes outside optimum temperature condition. Similarly, density-dependence survival $V_{i,j,t} (S_{\text{dd}})$ (exclusively for the $\{larva\}$ stage), is shown below: 
+
+
+$$
+V_{i,j,t} (S_{\text{dd}}) \sim\text{Bernoulli} (V_{i,j,t} (T) S_{\text{dd}})
+$$
+$$
+S_{\text{dd}} = \left(1 - \frac{C_l}{k} \right)
+$$
+
+where $S_{dd}$ is the density-dependent factor estimated by $C_l$ number of larvae in the patch, and $k$ is the larvae carrying capacity for each patch. This formulation assumes a linear decrease in survival as larval density approaches the carrying capacity
+
+
+## Daily Dispersal 
+
+Adults (male and female) disperse between patches according to an exponential dispersal kernel. Dispersal from origin patch $i$ to destination patch $j$, occurs with a probability that decreases exponentially with increasing Euclidean distance between patches. The dispersal kernel $K$ is given below as: 
+
+$$
+K_{ij} = e^{-\lambda d_{ij}}
+$$
+where $d_{ij}$ is the Euclidean distance between patches and $λ$ is an exponential decay parameter that controls the kernel's steepness. Each row is then normalised (sum to 1) to get a conditional probability $M_{ij}$ of moving from $i$ to $j$. 
+
+$$
+M_{ij} = \frac{K_{ij}} {\sum_{j}^{i} K_{ij}}
+$$
+Since not all adults disperse, the fraction $r$ of adults dispersing per daily is then used to calculate the true probability $P_{ij}$ of an individual moving from $i$ to $j$ or remaining:
+
+$$
+P_{ij} =
+\begin{cases}
+\text{if } i = j,  & 1- (r.M_{ij} + (1-r).I) \\
+\text{if } i \ne j, & r.M_{ij} + (1-r).I  
+\end{cases}
+$$
+where $I$ is the diagonal of the dispersal kernel and is = 0
+
+
+
