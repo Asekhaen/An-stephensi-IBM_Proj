@@ -36,26 +36,26 @@ $$
 
 ## Daily survival
 
-Survival is governed by both intrinsic and extrinsic factors. Intrinsic survival is the baseline survival influenced by the individual's internal mechanisms (e.g. biology, and genetics). For each individual the baseline survival according to it's stage as previously described $S_i \in \{egg, larva, pupa, adult\}$ is given by stage-specific survival probabilities $\vec{g} = {v_{egg}, v_{larva}, v_{pupa}, v_{adult}}$ and drawn from Bernoulli trial: 
+Survival is governed by both intrinsic and extrinsic factors. Intrinsic survival is the baseline survival influenced by the individual's internal mechanisms (e.g. biology and genetics). For each individual, the baseline survival according to it's stage $S_i \in \{egg, larva, pupa, adult\}$ as previously described is given by stage-specific survival probabilities $\vec{g} = {v_{egg}, v_{larva}, v_{pupa}, v_{adult}}$ and drawn from a Bernoulli distribution: 
 
 $$
 V_{i,j,t} \sim\text{Bernoulli}(\vec{g}_{S_i})
 $$
-conversely, extrinsic survival, influenced by external cues such as extreme temperature, predation, resource limitation and competition, etc., is captured through temperature-dependent and density-dependent survival.  
+conversely, extrinsic survival, influenced by external cues such as extreme temperature, predation, resource limitation and competition, etc., is captured through temperature-dependent and density-dependent survival probabilities.  
 
-Temperature-dependent survival $V_{i,j,t} (T)$ is given below as:
+Temperature-dependent survival $V_{i,j,t} (T)$ is given below:
 
 
 $$
 V_{i,j,t} (T) \sim\text{Bernoulli}(\vec{g}_{S_i} T)
 
 $$
-where $T$ is the factor that control the effect of daily temperature fluctuations on survival:
+where $T$ is the factor that controls the effect of daily temperature fluctuations on survival and is described below:
 
 $$
 T= e^{-\frac{(T_{\text{daily}} - T_{\text{opt}})^2}{2\sigma^2}}
 $$
-where, $T_{\text{daily}}$, is the daily temperature, $T_{\text{opt}}$ the optimum surviving temperature, and $\sigma$ is a factor that controls how steep survival respond to temperature changes outside optimum temperature condition. Similarly, density-dependence survival $V_{i,j,t} (S_{\text{dd}})$ (exclusively for the $\{larva\}$ stage), is shown below: 
+such that $T_{\text{daily}}$, represents the daily recorded temperature variation, $T_{\text{opt}}$ the optimum survival temperature, and $\sigma$, a factor that controls how steep survival respond to temperature changes outside optimum temperature condition. Similarly, density-dependence survival $V_{i,j,t} (S_{\text{dd}})$ (exclusively for the $\{larva\}$ stage), is also drawn from a Bernoulli distribution and is shown below: 
 
 
 $$
@@ -65,22 +65,22 @@ $$
 S_{\text{dd}} = \left(1 - \frac{C_l}{k} \right)
 $$
 
-where $S_{dd}$ is the density-dependent factor estimated by $C_l$ number of larvae in the patch, and $k$ is the larvae carrying capacity for each patch. This formulation assumes a linear decrease in survival as larval density approaches the carrying capacity
+where $S_{dd}$ is the density-dependent factor estimated by the number of larvae $C_l$ in each patch, and $k$, the larvae carrying capacity for each patch. This formulation assumes a linear decrease in survival as larval density approaches the carrying capacity. 
 
 
 ## Daily Dispersal 
 
-Adults (male and female) disperse between patches according to an exponential dispersal kernel. Dispersal from origin patch $i$ to destination patch $j$, occurs with a probability that decreases exponentially with increasing Euclidean distance between patches. The dispersal kernel $K$ is given below as: 
+Adults (male and female) disperse between patches according to an exponential dispersal kernel. Dispersal from origin ($i$) to destination ($j$), occurs with a probability that decreases exponentially as the Euclidean distance between patches increases. The dispersal kernel $K$ is given below as: 
 
 $$
 K_{ij} = e^{-\lambda d_{ij}}
 $$
-where $d_{ij}$ is the Euclidean distance between patches and $λ$ is an exponential decay parameter that controls the kernel's steepness. Each row is then normalised (sum to 1) to get a conditional probability $M_{ij}$ of moving from $i$ to $j$. 
+where $d_{ij}$ is the Euclidean distance between patches and $λ$ is an exponential decay parameter that controls the decay rate. Each row is then normalised (sum to 1) resulting in conditional probabilities $M_{ij}$ of moving between patches $i$ to $j$. 
 
 $$
 M_{ij} = \frac{K_{ij}} {\sum_{j}^{i} K_{ij}}
 $$
-Since not all adults disperse, the fraction $r$ of adults dispersing per daily is then used to calculate the true probability $P_{ij}$ of an individual moving from $i$ to $j$ or remaining:
+and since only a fraction $r$ of the adults disperse daily, the true probability $P_{ij}$ of an individual moving from $i$ to $j$ or remaining is calculated thus:
 
 $$
 P_{ij} =
