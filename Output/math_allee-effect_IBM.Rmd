@@ -88,11 +88,10 @@ and since only a fraction $r$ of the adults disperse daily, the true probability
 $$
 P_{j,k} =
 \begin{cases}
-\text{if } j = k,  & 1- (r.M_{ij} + (1-r).I) \\
-\text{if } i \ne j, & r.M_{ij} + (1-r).I  
+rM_{j,k}, & j \ne k \\
+1-r, & j = k 
 \end{cases}
 $$
-where $I$ is the diagonal of the dispersal kernel and is = 0
 
 
 
