@@ -1,8 +1,8 @@
 ---
 title: "Mathematical description of the IBM"
 output:
-  html_document: default
   pdf_document: default
+  html_document: default
 date: "2025-05-09"
 header-includes: \usepackage{wasysym}
 ---
@@ -48,19 +48,20 @@ Temperature-dependent survival $V_{i,j,t} (T)$ is given below:
 
 $$
 V_{i,j,t} (T) \sim\text{Bernoulli}(\vec{g}_{S_i} T)
-
 $$
 where $T$ is the factor that controls the effect of daily temperature fluctuations on survival and is described below:
 
 $$
 T= e^{-\frac{(T_{\text{daily}} - T_{\text{opt}})^2}{2\sigma^2}}
 $$
+
 such that $T_{\text{daily}}$, represents the daily recorded temperature variation, $T_{\text{opt}}$ the optimum survival temperature, and $\sigma$, a factor that controls how steep survival respond to temperature changes outside optimum temperature condition. Similarly, density-dependence survival $V_{i,j,t} (S_{\text{dd}})$ (exclusively for the $\{larva\}$ stage), is also drawn from a Bernoulli distribution and is shown below: 
 
 
 $$
 V_{i,j,t} (S_{\text{dd}}) \sim\text{Bernoulli} (V_{i,j,t} (T) S_{\text{dd}})
 $$
+
 $$
 S_{\text{dd}} = \left(1 - \frac{C_l}{k} \right)
 $$
@@ -75,7 +76,7 @@ Adults (male and female) disperse between patches according to an exponential di
 $$
 K_{ij} = e^{-\lambda d_{ij}}
 $$
-where $d_{ij}$ is the Euclidean distance between patches and $λ$ is an exponential decay parameter that controls the decay rate. Each row is then normalised (sum to 1) resulting in conditional probabilities $M_{ij}$ of moving between patches $i$ to $j$. 
+where $d_{ij}$ is the Euclidean distance between patches and $\lambda$ is an exponential decay parameter that controls the decay rate. Each row is then normalised (sum to 1) resulting in conditional probabilities $M_{ij}$ of moving between patches $i$ to $j$. 
 
 $$
 M_{ij} = \frac{K_{ij}} {\sum_{j}^{i} K_{ij}}
