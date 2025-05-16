@@ -1,8 +1,8 @@
 ---
 title: "Mathematical description of the IBM"
 output:
-  html_document: default
   pdf_document: default
+  html_document: default
 date: "2025-05-09"
 header-includes: \usepackage{wasysym}
 ---
