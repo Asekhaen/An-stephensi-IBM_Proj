@@ -1,18 +1,18 @@
 # parameters
 
-patches <- 3                        # Number of patches
-n_per_patch <- c(5000, 0, 0)                 # Initial number of individuals per patch
+patches <- 3                         # Number of patches
+n_per_patch <- c(5000, 0, 0)         # Initial number of individuals per patch
 daily_survival <- c(egg = 0.8,       # daily survival prob
                     larva = 0.74, 
                     pupa = 0.73, 
                     adult = 0.80)    
 daily_transition <- c(egg = 0.5,
                       larva = 0.5,
-                      pupa = 0.5)  # daily transition prob
-fecundity <- 10                      # Number of offspring per day per female mosquitoe 
-mate_prob <- 0.75                   # Probability of mating
-sim_days <- 50                    # Number of simulation in days
-bloodmeal_prob <- 0.75              # Probability that a female find a blood meal
+                      pupa = 0.5)   # daily transition prob
+fecundity <- 10                     # Number of offspring per day per female mosquitoe 
+beta <- 100                         # assumed to be the male population at which the probability of mating = 0.5 (North and Godfray Malar J (2018) 17:140)
+sim_days <- 100                     # Number of simulation in days
+bloodmeal_prob <- 0.70              # Probability that a female find a blood meal
 
 # dispersal parameters
 lambda <- 0.2
