@@ -11,7 +11,7 @@ We develop a spatially-explicit individual-based model (IBM) in discrete space a
 
 ## Reproduction
 
-Whether or not a female reproduces in a given time period ($R_{i(\female), j, t}$) depends upon a chain of events.  Each adult female can potentially mate with any adult male present in the patch, and this occurs with some probability $m$ given at least one adult male is present in the patch.  Whether this mating then goes on to the successful production of eggs is also probabilistic, and depends on the female acquiring a bloodmeal, which we treat as occurring with probability, $b$.  Thus:
+Whether or not a female reproduces in a given time period ($R_{i \in \female), j, t}$) depends upon a chain of events.  Each adult female can potentially mate with any adult male present in the patch, and this occurs with some probability $m$ given at least one adult male is present in the patch.  Whether this mating then goes on to the successful production of eggs is also probabilistic, and depends on the female acquiring a bloodmeal, which we treat as occurring with probability, $b$.  Thus:
 
 $$
 R_{i \in \female,j,t} \sim \text{Bernoulli}(bm)
@@ -36,57 +36,59 @@ $$
 
 ## Daily survival
 
-Survival is governed by both intrinsic and extrinsic factors. Intrinsic survival is the baseline survival influenced by the individual's internal mechanisms (e.g. biology and genetics). For each individual, the baseline survival according to it's stage $S_i \in \{egg, larva, pupa, adult\}$ as previously described is given by stage-specific survival probabilities $\vec{g} = {v_{egg}, v_{larva}, v_{pupa}, v_{adult}}$ and drawn from a Bernoulli distribution: 
+Survival is governed by both intrinsic and extrinsic factors. Intrinsic survival is the baseline survival influenced by the individual's internal mechanisms (e.g. biology and genetics). This determines the maximum survival rate for each stage, $\vec{v} = {v_{egg}, v_{larva}, v_{pupa}, v_{adult}}$
+
+Conversely, extrinsic survival is influenced by external factors such as extreme temperature, predation, resource limitation and competition, etc. is captured through temperature-dependent and density-dependent survival probabilities.  
+
+Temperature-dependent survival is a function of site and time:
 
 $$
-V_{i,j,t} \sim\text{Bernoulli}(\vec{g}_{S_i})
-$$
-conversely, extrinsic survival, influenced by external cues such as extreme temperature, predation, resource limitation and competition, etc., is captured through temperature-dependent and density-dependent survival probabilities.  
-
-Temperature-dependent survival $V_{i,j,t} (T)$ is given below:
-
-
-$$
-V_{i,j,t} (T) \sim\text{Bernoulli}(\vec{g}_{S_i} T)
-$$
-where $T$ is the factor that controls the effect of daily temperature fluctuations on survival and is described below:
-
-$$
-T= e^{-\frac{(T_{\text{daily}} - T_{\text{opt}})^2}{2\sigma^2}}
+\phi_T (j,t)= e^{-\frac{(T_{j,t} - T_{\text{opt}})^2}{2\sigma^2}}
 $$
 
-such that $T_{\text{daily}}$, represents the daily recorded temperature variation, $T_{\text{opt}}$ the optimum survival temperature, and $\sigma$, a factor that controls how steep survival respond to temperature changes outside optimum temperature condition. Similarly, density-dependence survival $V_{i,j,t} (S_{\text{dd}})$ (exclusively for the $\{larva\}$ stage), is also drawn from a Bernoulli distribution and is shown below: 
+where $T_{j,t}$, represents the daily recorded temperature at a given site, and $T_{\text{opt}}$ the optimum survival temperature, and $\sigma$, a factor that controls how steep survival respond to temperature changes outside optimum temperature condition. 
 
-
-$$
-V_{i,j,t} (S_{\text{dd}}) \sim\text{Bernoulli} (V_{i,j,t} (T) S_{\text{dd}})
-$$
+Similarly, density-dependent survival is a function of site and time: 
 
 $$
-S_{\text{dd}} = \left(1 - \frac{C_l}{k} \right)
+  \phi_N(i,j,t) =
+    \begin{cases}
+      1 & \text{if } S_i \ne \text{larva}\\
+      (1 - \frac{c_{j,t}}{C_j}) & \text{if } S_i = \text{larva}
+    \end{cases}       
 $$
 
-where $S_{dd}$ is the density-dependent factor estimated by the number of larvae $C_l$ in each patch, and $k$, the larvae carrying capacity for each patch. This formulation assumes a linear decrease in survival as larval density approaches the carrying capacity. 
+where $c_{j,t}$ is the number of larva in each patch, and $C_j$, the larvae carrying capacity for each patch. This formulation assumes a linear decrease in survival as larval density approaches the carrying capacity. TO BE UPDATED TO CORRECT DD FUNCTION.
+
+Finally, realised survival is treated as a stochastic process with a draw from a Bernoulli distribution:
+
+$$
+V_{i,j,t} \sim\text{Bernoulli} (\vec{v}_{S_i}\phi_T (j,t)\phi_N(i,j,t)).
+$$
 
 
 ## Daily Dispersal 
 
-Adults (male and female) disperse between patches according to an exponential dispersal kernel. Dispersal from origin ($i$) to destination ($j$), occurs with a probability that decreases exponentially as the Euclidean distance between patches increases. The dispersal kernel $K$ is given below as: 
+Adults (male and female) disperse between patches according to an exponential dispersal kernel. Dispersal from origin ($j$) to destination ($k$), occurs with a probability that decreases exponentially as the Euclidean distance between patches increases. The dispersal kernel $K$ is given below as: 
 
 $$
-K_{ij} = e^{-\lambda d_{ij}}
-$$
-where $d_{ij}$ is the Euclidean distance between patches and $\lambda$ is an exponential decay parameter that controls the decay rate. Each row is then normalised (sum to 1) resulting in conditional probabilities $M_{ij}$ of moving between patches $i$ to $j$. 
-
-$$
-M_{ij} = \frac{K_{ij}} {\sum_{j}^{i} K_{ij}}
-$$
-and since only a fraction $r$ of the adults disperse daily, the true probability $P_{ij}$ of an individual moving from $i$ to $j$ or remaining is calculated thus:
-
-$$
-P_{ij} =
+K_{j,k} = 
 \begin{cases}
-\text{if } i = j,  & 1- (r.M_{ij} + (1-r).I) \\
+e^{-\lambda d_{j,k}}, & j \ne k \\
+0, & j = k
+\end{cases}
+$$
+where $d_{j,k}$ is the Euclidean distance between patches and $\lambda$ is an exponential decay parameter that controls the decay rate, and then each row of the resulting dispersal matrix is then normalised (sum to 1) resulting in conditional probabilities $M_{j,k}: 
+
+$$
+M_{j,k} = \frac{K_{j,k}} {\sum_{k} K_{j,k}}
+$$
+and since only a fraction $r$ of the adults disperse daily, the true probability $P_{j,k}$ of an individual moving from $j$ to $k$ is calculated thus:
+
+$$
+P_{j,k} =
+\begin{cases}
+\text{if } j = k,  & 1- (r.M_{ij} + (1-r).I) \\
 \text{if } i \ne j, & r.M_{ij} + (1-r).I  
 \end{cases}
 $$
