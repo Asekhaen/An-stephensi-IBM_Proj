@@ -1,8 +1,8 @@
 ---
 title: "Mathematical description of the IBM"
 output:
-  html_document: default
   pdf_document: default
+  html_document: default
 date: "2025-05-09"
 header-includes: \usepackage{wasysym}
 ---
@@ -11,17 +11,22 @@ We develop a spatially-explicit individual-based model (IBM) in discrete space a
 
 ## Reproduction
 
-Whether or not a female reproduces in a given time period ($R_{i \in \female), j, t}$) depends upon a chain of events. Each adult female can potentially mate with any adult male present in the patch, and this occurs with some probability $m$ given at least one adult male is present in the patch. Whether this mating then goes on to the successful production of eggs is also probabilistic, and depends on the female acquiring a bloodmeal, which we treat as occurring with probability, $b$. Thus:
+Whether or not a female reproduces in a given time period ($R_{i \in \female), j, t}$) depends upon a chain of events. Each adult female can potentially mate with any adult male present in the patch, and this occurs with some probability $m$ estimated by the number of males $M_{j,t}$ in the patch and $\beta$ — the adult male population size at which the daily probability of mating is 0.5 (North et al., 2018), such that, $m$ increases as the number of males in the population increases. Whether this mating then goes on to the successful production of eggs is also probabilistic, and depends on the female acquiring a bloodmeal, which we treat as occurring with probability, $b$. Thus:
 
 $$
 R_{i \in \female,j,t} \sim \text{Bernoulli}(bm)
+$$
+$$
+m = (\frac {M_{j,t}}{\beta + M_{j,t}})
 $$
 
 For each reproducing female, the number of eggs/offspring produced per day is drawn from a Poisson distribution:
 
 $$
 O_{i \in \female, j, t} \sim \text{Poisson}(f R_{i \in \female,j,t})
-$$ where $f$ is the daily female fecundity.
+$$ 
+
+where $f$ is the daily female fecundity.
 
 ## Stage Development
 
@@ -51,11 +56,11 @@ $$
   \phi_N(i,j,t) =
     \begin{cases}
       1 & \text{if } S_i \ne \text{larva}\\
-      (\frac{1}{1+\beta,c_{j,t}}) & \text{if } S_i = \text{larva}
+      (\frac{1}{1+\alpha,c_{j,t}}) & \text{if } S_i = \text{larva}
     \end{cases}       
 $$
 
-where $c_{j,t}$ is the number of larva in each patch, and $\beta$ is the strength of density dependence in the targeted stage and can be estimated from experimental studies. This formulation assumes a decrease in survival as larval density increases, and reflects competition for limited resources (Bellows, 1981; Walker et al., 2020).
+where $c_{j,t}$ is the number of larva in each patch, and $\alpha$ is the strength of density dependence in the targeted stage and can be estimated from experimental studies. This formulation assumes a decrease in survival as larval density increases, and reflects competition for limited resources (Bellows, 1981; Walker et al., 2020).
 
 Finally, realised survival is treated as a stochastic process with a draw from a Bernoulli distribution:
 
