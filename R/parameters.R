@@ -10,9 +10,9 @@ daily_transition <- c(egg = 0.5,
                       larva = 0.5,
                       pupa = 0.5)   # daily transition prob
 fecundity <- 10                     # Number of offspring per day per female mosquitoe 
-beta <- 100                         # assumed to be the male population at which the probability of mating = 0.5 (North and Godfray Malar J (2018) 17:140)
-sim_days <- 100                     # Number of simulation in days
-bloodmeal_prob <- 0.70              # Probability that a female find a blood meal
+beta <- 10                         # assumed to be the male population at which the probability of mating = 0.5 (North and Godfray Malar J (2018) 17:140)
+sim_days <- 30                     # Number of simulation in days
+bloodmeal_prob <- 0.75              # Probability that a female find a blood meal
 
 # dispersal parameters
 lambda <- 0.2
