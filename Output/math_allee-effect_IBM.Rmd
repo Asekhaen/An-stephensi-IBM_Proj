@@ -1,8 +1,8 @@
 ---
 title: "Mathematical description of the IBM"
 output:
-  pdf_document: default
   html_document: default
+  pdf_document: default
 date: "2025-05-09"
 header-includes: \usepackage{wasysym}
 ---
@@ -11,24 +11,21 @@ We develop a spatially-explicit individual-based model (IBM) in discrete space a
 
 ## Reproduction
 
-Whether or not a female reproduces in a given time period ($R_{i \in \female), j, t}$) depends upon a chain of events.  Each adult female can potentially mate with any adult male present in the patch, and this occurs with some probability $m$ given at least one adult male is present in the patch.  Whether this mating then goes on to the successful production of eggs is also probabilistic, and depends on the female acquiring a bloodmeal, which we treat as occurring with probability, $b$.  Thus:
+Whether or not a female reproduces in a given time period ($R_{i \in \female), j, t}$) depends upon a chain of events. Each adult female can potentially mate with any adult male present in the patch, and this occurs with some probability $m$ given at least one adult male is present in the patch. Whether this mating then goes on to the successful production of eggs is also probabilistic, and depends on the female acquiring a bloodmeal, which we treat as occurring with probability, $b$. Thus:
 
 $$
 R_{i \in \female,j,t} \sim \text{Bernoulli}(bm)
 $$
 
-
-For each reproducing female, the number of eggs/offspring produced per day is drawn from a Poisson distribution: 
+For each reproducing female, the number of eggs/offspring produced per day is drawn from a Poisson distribution:
 
 $$
 O_{i \in \female, j, t} \sim \text{Poisson}(f R_{i \in \female,j,t})
-$$
-where $f$ is the daily female fecundity.
-
+$$ where $f$ is the daily female fecundity.
 
 ## Stage Development
 
-Each individual carries a variable denoting the individual's stage, $S_i \in \{egg, larva, pupa, adult\}$. Individuals transition between developmental stages according to stage-specific transition probabilities, $\vec{g}$, which records transition probabilities $\{g_{egg \rightarrow larva}, g_{larva \rightarrow pupa}, g_{pupa \rightarrow adult}, g_{adult \rightarrow adult}\}$ where $g_{adult \rightarrow adult} = 1$. Individual transition is stochastic, with realised transitions occurring as a draw from a Bernoulli distribution, according to:  
+Each individual carries a variable denoting the individual's stage, $S_i \in \{egg, larva, pupa, adult\}$. Individuals transition between developmental stages according to stage-specific transition probabilities, $\vec{g}$, which records transition probabilities $\{g_{egg \rightarrow larva}, g_{larva \rightarrow pupa}, g_{pupa \rightarrow adult}, g_{adult \rightarrow adult}\}$ where $g_{adult \rightarrow adult} = 1$. Individual transition is stochastic, with realised transitions occurring as a draw from a Bernoulli distribution, according to:
 
 $$
 D_{i,j,t} \sim\text{Bernoulli}(\vec{g}_{S_i})
@@ -38,7 +35,7 @@ $$
 
 Survival is governed by both intrinsic and extrinsic factors. Intrinsic survival is the baseline survival influenced by the individual's internal mechanisms (e.g. biology and genetics). This determines the maximum survival rate for each stage, $\vec{v} = {v_{egg}, v_{larva}, v_{pupa}, v_{adult}}$
 
-Conversely, extrinsic survival is influenced by external factors such as extreme temperature, predation, resource limitation and competition, etc. is captured through temperature-dependent and density-dependent survival probabilities.  
+Conversely, extrinsic survival is influenced by external factors such as extreme temperature, predation, resource limitation and competition, etc. is captured through temperature-dependent and density-dependent survival probabilities.
 
 Temperature-dependent survival is a function of site and time:
 
@@ -46,19 +43,19 @@ $$
 \phi_T (j,t)= e^{-\frac{(T_{j,t} - T_{\text{opt}})^2}{2\sigma^2}}
 $$
 
-where $T_{j,t}$, represents the daily recorded temperature at a given site, and $T_{\text{opt}}$ the optimum survival temperature, and $\sigma$, a factor that controls how steep survival respond to temperature changes outside optimum temperature condition. 
+where $T_{j,t}$, represents the daily recorded temperature at a given site, and $T_{\text{opt}}$ the optimum survival temperature, and $\sigma$, a factor that controls how steep survival respond to temperature changes outside optimum temperature condition.
 
-Similarly, density-dependent survival is a function of site and time: 
+Similarly, density-dependent survival is a function of site and time:
 
 $$
   \phi_N(i,j,t) =
     \begin{cases}
       1 & \text{if } S_i \ne \text{larva}\\
-      (1 - \frac{c_{j,t}}{C_j}) & \text{if } S_i = \text{larva}
+      (\frac{1}{1+\beta,c_{j,t}}) & \text{if } S_i = \text{larva}
     \end{cases}       
 $$
 
-where $c_{j,t}$ is the number of larva in each patch, and $C_j$, the larvae carrying capacity for each patch. This formulation assumes a linear decrease in survival as larval density approaches the carrying capacity. TO BE UPDATED TO CORRECT DD FUNCTION.
+where $c_{j,t}$ is the number of larva in each patch, and $\beta$ is the strength of density dependence in the targeted stage and can be estimated from experimental studies. This formulation assumes a decrease in survival as larval density increases, and reflects competition for limited resources (Bellows, 1981; Walker et al., 2020).
 
 Finally, realised survival is treated as a stochastic process with a draw from a Bernoulli distribution:
 
@@ -66,10 +63,9 @@ $$
 V_{i,j,t} \sim\text{Bernoulli} (\vec{v}_{S_i}\phi_T (j,t)\phi_N(i,j,t)).
 $$
 
+## Daily Dispersal
 
-## Daily Dispersal 
-
-Adults (male and female) disperse between patches according to an exponential dispersal kernel. Dispersal from origin ($j$) to destination ($k$), occurs with a probability that decreases exponentially as the Euclidean distance between patches increases. The dispersal kernel $K$ is given below as: 
+Adults (male and female) disperse between patches according to an exponential dispersal kernel. Dispersal from origin ($j$) to destination ($k$), occurs with a probability that decreases exponentially as the Euclidean distance between patches increases. The dispersal kernel $K$ is given below as:
 
 $$
 K_{j,k} = 
@@ -77,12 +73,14 @@ K_{j,k} =
 e^{-\lambda d_{j,k}}, & j \ne k \\
 0, & j = k
 \end{cases}
-$$
-where $d_{j,k}$ is the Euclidean distance between patches and $\lambda$ is an exponential decay parameter that controls the decay rate, and then each row of the resulting dispersal matrix is then normalised (sum to 1) resulting in conditional probabilities $M_{j,k}: 
+$$ 
+
+where $d_{j,k}$ is the Euclidean distance between patches and $\lambda$ is an exponential decay parameter that controls the decay rate, and then each row of the resulting dispersal matrix is then normalised (sum to 1) resulting in conditional probabilities \$M\_{j,k}:
 
 $$
 M_{j,k} = \frac{K_{j,k}} {\sum_{k} K_{j,k}}
-$$
+$$ 
+
 and since only a fraction $r$ of the adults disperse daily, the true probability $P_{j,k}$ of an individual moving from $j$ to $k$ is calculated thus:
 
 $$
@@ -92,6 +90,3 @@ rM_{j,k}, & j \ne k \\
 1-r, & j = k 
 \end{cases}
 $$
-
-
-
