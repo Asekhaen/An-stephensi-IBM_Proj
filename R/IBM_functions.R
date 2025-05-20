@@ -27,7 +27,6 @@ ini_pop <- function(patches, n_per_patch, coords, loci) {
 
 #### Growth, reproduction and drive inheritance ####
 growth <- function(pop_patches, 
-                   mate_prob, 
                    bloodmeal_prob, 
                    fecundity,
                    conversion_prob,
@@ -41,7 +40,7 @@ growth <- function(pop_patches,
                    daily_temp,
                    sigma) {
   
-  #if (sim_days == 5) browser()
+  if (sim_days == 10) browser()
   
   updated_pop_patches <- list()
   
@@ -294,8 +293,7 @@ dispersal <- function(pop, dispersal_matrix, check = FALSE) {
 simulation <- function(patches,
                        n_per_patch, 
                        coords,
-                       n_loci,
-                       mate_prob, 
+                       n_loci, 
                        bloodmeal_prob, 
                        fecundity, 
                        conversion_prob,
@@ -317,8 +315,7 @@ simulation <- function(patches,
     cat("Day", day, "Completed\n")
 
     # Growth with reproduction
-    pop <- growth(pop_patches = pop, 
-                  mate_prob, 
+    pop <- growth(pop_patches = pop,
                   bloodmeal_prob, 
                   fecundity,
                   conversion_prob,

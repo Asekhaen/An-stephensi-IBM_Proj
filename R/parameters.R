@@ -10,7 +10,7 @@ daily_transition <- c(egg = 0.5,
                       larva = 0.5,
                       pupa = 0.5)    # daily transition prob
 fecundity <- 10                      # Number of offspring per day per female mosquito
-beta <- 10                          # the adult male population size at which the daily probability of mating is 0.5.
+beta <- 10                           # the adult male population size at which the daily probability of mating is 0.5.
 sim_days <- 30                       # Number of simulation in days
 bloodmeal_prob <- 0.75               # Probability that a female find a blood meal
 
