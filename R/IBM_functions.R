@@ -70,8 +70,10 @@ growth <- function(pop_patches,
         selected_male <- male[selected_male_index, ]
         
         # Bernoulli trial for mating and feeding (1 if mated, 0 if not)
+
         if (rbinom(1, 1, (nrow(male)/(beta + nrow(male)))) == 1 && rbinom(1, 1, bloodmeal_prob) == 1) {   #  (nrow(male)/(beta + nrow(male)))) is the mating probability which increases as male population increases (North and Godfray; Malar J (2018) 17:140) 
           # population 
+
           # If bloodfed, calculate expected offspring for this female
           exp_offspring <- fecundity
           # Draw the actual number of offspring from a Poisson distribution
