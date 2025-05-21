@@ -10,7 +10,7 @@ daily_transition <- c(egg = 0.5,
                       larva = 0.5,
                       pupa = 0.5)    # daily transition prob
 fecundity <- 10                      # Number of offspring per day per female mosquito
-beta <- 10                           # the adult male population size at which the daily probability of mating is 0.5.
+mating_factor <- 10                           # the adult male population size at which the daily probability of mating is 0.5.
 sim_days <- 30                       # Number of simulation in days
 bloodmeal_prob <- 0.75               # Probability that a female find a blood meal
 
@@ -30,4 +30,4 @@ temp  <-  round((rnorm(sim_days,
                        sd = 3)), 1)
 sigma <- 8        # Decay parameter for temperature effect on survival
 
-alpha <- 0.0001   # strength of density dependence 
+dd_factor <- 0.0001   # strength of density dependence 
