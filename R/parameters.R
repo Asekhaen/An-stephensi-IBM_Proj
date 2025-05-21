@@ -3,16 +3,16 @@
 patches <- 3                         # Number of patches
 n_per_patch <- c(5000, 0, 0)         # Initial number of individuals per patch
 daily_survival <- c(egg = 0.8,       # daily survival prob
-                    larva = 0.74, 
-                    pupa = 0.73, 
+                    larva = 0.80, 
+                    pupa = 0.75, 
                     adult = 0.80)    
 daily_transition <- c(egg = 0.5,
                       larva = 0.5,
-                      pupa = 0.5)   # daily transition prob
-fecundity <- 10                     # Number of offspring per day per female mosquitoe 
-beta <- 10                         # assumed to be the male population at which the probability of mating = 0.5 (North and Godfray Malar J (2018) 17:140)
-sim_days <- 30                     # Number of simulation in days
-bloodmeal_prob <- 0.75              # Probability that a female find a blood meal
+                      pupa = 0.5)    # daily transition prob
+fecundity <- 10                      # Number of offspring per day per female mosquito
+beta <- 10                           # the adult male population size at which the daily probability of mating is 0.5.
+sim_days <- 15                       # Number of simulation in days
+bloodmeal_prob <- 0.75               # Probability that a female find a blood meal
 
 # dispersal parameters
 lambda <- 0.2
@@ -25,10 +25,9 @@ resistance_prob <- 0.5   # prob resistance development or conversion failure
 
 
 # Environmental/ecological
-carry_k <- 50000                     # Carrying capacity
 temp  <-  round((rnorm(sim_days, 
                        mean = 25, 
                        sd = 3)), 1)
-sigma <- 8
+sigma <- 8        # Decay parameter for temperature effect on survival
 
-
+alpha <- 0.0001   # strength of density dependence 
