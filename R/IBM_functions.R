@@ -8,25 +8,18 @@ colnames(coords) <- c("x","y")
 
 #### Initialise population ####
 
-ini_pop <- function(patches, n_per_patch, coords, loci) {
+ini_pop <- function(patches, n_per_patch, coords, loci, decay) {
   patches_pop <- list()
   
   # a function to place loci at random on the genome (of size = 1)
-  place_loci_mat <- function(loci, genome.size){
+    # also takes exponential decay and variance to produce variance-covariance matrix
+  place_loci_mat <- function(loci, genome.size = 1, var = 1, decay){
    loci_positions <- runif(loci, max = genome.size)
-   loci_pos_matrix <- as.matrix(dist(loci_positions))^2 
-   return(loci_pos_matrix)
+   loci_dist_matrix <- as.matrix(dist(loci_positions))^2 
+   loci_cov_matrix <- var*exp(-decay*loci_dist_matrix)
+   return(loci_cov_matrix)
   }
-  
-  
-  
-  # a function to calculate covariance matrix given loci placements
-  make_cov_matrix <- function(var, loc.positions_mat, decay){
-    var * exp(-(loc.positions_mat <- as.matrix(dist(place_loci(loci))))/decay)
-  }
-  
-  
-  
+
   
   for (i in 1:patches) {
     patches_pop[[i]] <- tibble(
