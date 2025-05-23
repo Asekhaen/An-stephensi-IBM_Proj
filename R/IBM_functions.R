@@ -8,18 +8,8 @@ colnames(coords) <- c("x","y")
 
 #### Initialise population ####
 
-ini_pop <- function(patches, n_per_patch, coords, loci, decay) {
+ini_pop <- function(patches, n_per_patch, coords, loci) {
   patches_pop <- list()
-  
-  # a function to place loci at random on the genome (of size = 1)
-    # also takes exponential decay and variance to produce variance-covariance matrix
-  place_loci_mat <- function(loci, genome.size = 1, var = 1, decay){
-   loci_positions <- runif(loci, max = genome.size)
-   loci_dist_matrix <- as.matrix(dist(loci_positions))^2 
-   loci_cov_matrix <- var*exp(-decay*loci_dist_matrix)
-   return(loci_cov_matrix)
-  }
-
   
   for (i in 1:patches) {
     patches_pop[[i]] <- tibble(
@@ -47,12 +37,13 @@ growth <- function(pop_patches,
                    daily_transition,
                    alpha,
                    beta,
+                   decay,
                    effect_size_factor,
                    sim_days,
                    daily_temp,
                    sigma) {
   
-  if (sim_days == 30) browser()
+  #if (sim_days == 15) browser()
   
   updated_pop_patches <- list()
   
@@ -107,31 +98,31 @@ growth <- function(pop_patches,
           male_germline <- male_germline |> select(contains("allele"))
           fem_germline <- fem_germline |> select(contains("allele"))
           
-    # Genetic inheritance and Drive conversion
-
-        drive_conversion <- function(parent, prob1, prob2) {
-          if (any(is.na(parent$allele1)) || any(is.na(parent$allele2))) {
-              warning("NA detected in allele input!")
-            }
-          heterozygous <- (parent$allele1 + parent$allele2) == 1
-          # Drive conversion 95% conversion rate
-          converted <- rbinom(length(parent$allele1), 1, prob1) # drive conversion at each locus
-          conv_event <- converted*heterozygous # conversion event?
-          parent$allele1[parent$allele1 == 0 & conv_event == 1] <- 1 # successful conversions
-          parent$allele2[parent$allele2 == 0 & conv_event == 1] <- 1
-  
-          # Resistance development (0 → 2)
-          failed_conv <- heterozygous & conv_event == 0
-          resistance_event <- rbinom(length(parent$allele1), 1, prob2)
-          parent$allele1[parent$allele1 == 0 & failed_conv & resistance_event == 1] <- 2  # Thoughts/To do: individuals that did not develop resistance, yet heterozygous can be can be designated as those with functional resistance and resistant to future Cas9 cutting
-          parent$allele2[parent$allele2 == 0 & failed_conv & resistance_event == 1] <- 2
-  
-          return(parent)
-        }
-        
-        
-        fem_germline <- drive_conversion(fem_germline, conversion_prob, resistance_prob)   # dams with drive converted germ line
-        male_germline <- drive_conversion(male_germline, conversion_prob, resistance_prob) # sires with drive converted germ line
+    # # Genetic inheritance and Drive conversion
+    # 
+    #     drive_conversion <- function(parent, prob1, prob2) {
+    #       if (any(is.na(parent$allele1)) || any(is.na(parent$allele2))) {
+    #           warning("NA detected in allele input!")
+    #         }
+    #       heterozygous <- (parent$allele1 + parent$allele2) == 1
+    #       # Drive conversion 95% conversion rate
+    #       converted <- rbinom(length(parent$allele1), 1, prob1) # drive conversion at each locus
+    #       conv_event <- converted*heterozygous # conversion event?
+    #       parent$allele1[parent$allele1 == 0 & conv_event == 1] <- 1 # successful conversions
+    #       parent$allele2[parent$allele2 == 0 & conv_event == 1] <- 1
+    # 
+    #       # Resistance development (0 → 2)
+    #       failed_conv <- heterozygous & conv_event == 0
+    #       resistance_event <- rbinom(length(parent$allele1), 1, prob2)
+    #       parent$allele1[parent$allele1 == 0 & failed_conv & resistance_event == 1] <- 2  # Thoughts/To do: individuals that did not develop resistance, yet heterozygous can be can be designated as those with functional resistance and resistant to future Cas9 cutting
+    #       parent$allele2[parent$allele2 == 0 & failed_conv & resistance_event == 1] <- 2
+    # 
+    #       return(parent)
+    #     }
+    #     
+    #     
+    #     fem_germline <- drive_conversion(fem_germline, conversion_prob, resistance_prob)   # dams with drive converted germ line
+    #     male_germline <- drive_conversion(male_germline, conversion_prob, resistance_prob) # sires with drive converted germ line
       
       
         # Genetic inheritance
@@ -141,11 +132,34 @@ growth <- function(pop_patches,
         num_loci <- ncol(fem_germline$allele1)
         stopifnot(num_loci == n_loci)
         
+        
+        # a function to place loci at random on the genome (of size = 1)
+        # also takes exponential decay and variance to produce variance-covariance matrix
+        
+        place_loci_mat <- function(loci, genome.size = 1, var = 0.5, decay, mean_prob = 0.5){
+          loci_positions <- runif(loci, max = genome.size)
+          loci_dist_matrix <- as.matrix(dist(loci_positions))^2 
+          loci_cov_matrix <- var*exp(-decay*loci_dist_matrix)
+          epsilon <- MASS::mvrnorm(1, rep(0, loci), Sigma = loci_cov_matrix)
+          selection_prob <- plogis(qlogis(mean_prob) + epsilon)
+          
+          return(list(loci_positions = loci_positions, 
+                      loci_dist_matrix = loci_dist_matrix, 
+                      loci_cov_matrix = loci_cov_matrix,
+                      epsilon = epsilon,
+                      selection_prob = selection_prob))
+        }
+        
+        
+        linkage_selection_prob <- place_loci_mat(loci = n_loci, 
+                                                 decay = decay)
+        
         # random selection of allele
         
-        which_allele <- matrix(rbinom(total_offspring * num_loci, 1, 0.5) == 0,
+        which_allele <- matrix(rbinom(total_offspring * num_loci, 1, linkage_selection_prob$selection_prob) == 0,
                                nrow = total_offspring,
                                ncol = num_loci)
+        
         
         #  Determination of offspring features
         offspring <- tibble(
@@ -314,6 +328,7 @@ simulation <- function(patches,
                        daily_transition,
                        alpha,
                        beta,
+                       decay,
                        effect_size_factor,
                        sim_days,
                        dispersal_matrix,
@@ -338,6 +353,7 @@ simulation <- function(patches,
                   daily_transition,
                   alpha,
                   beta,
+                  decay,
                   effect_size_factor,
                   sim_days = day,
                   daily_temp = temp[day],

@@ -11,7 +11,7 @@ daily_transition <- c(egg = 0.5,
                       pupa = 0.5)    # daily transition prob
 fecundity <- 10                      # Number of offspring per day per female mosquito
 beta <- 50                           # the adult male population size at which the daily probability of mating is 0.5.
-sim_days <- 15                       # Number of simulation in days
+sim_days <- 25                       # Number of simulation in days
 bloodmeal_prob <- 0.75               # Probability that a female find a blood meal
 
 # dispersal parameters
@@ -23,6 +23,7 @@ n_loci <- 20
 conversion_prob <- 0.95  # Rate at which the drive allele converts the wild-type allele
 resistance_prob <- 0.5   # prob resistance development or conversion failure
 effect_size_factor <- 0.1
+decay <- 0.5
 
 
 # Environmental/ecological
