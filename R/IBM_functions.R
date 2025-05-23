@@ -9,6 +9,14 @@ colnames(coords) <- c("x","y")
 #### Initialise population ####
 ini_pop <- function(patches, n_per_patch, coords, loci) {
   patches_pop <- list()
+  # a function to place loci at random on the genome (of size = 1)
+  place_loci <- function(loci, genome.size = 1){
+    runif(loci)
+  }
+  # a function to calculate covariance matrix given loci placements
+  make_cov_matrix <- function(loc.positions, decay = 5){
+    
+  }
   
   for (i in 1:patches) {
     patches_pop[[i]] <- tibble(
@@ -98,7 +106,7 @@ growth <- function(pop_patches,
           
     # Genetic inheritance and Drive conversion
 
-          drive_conversion <- function(parent, prob1, prob2) {
+        drive_conversion <- function(parent, prob1, prob2) {
           if (any(is.na(parent$allele1)) || any(is.na(parent$allele2))) {
               warning("NA detected in allele input!")
             }
