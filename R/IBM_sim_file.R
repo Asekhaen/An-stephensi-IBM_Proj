@@ -16,7 +16,7 @@ library(tidyverse)
 #               PARAMETERS                #
 ###########################################
 
-set.seed(20250512)
+set.seed(20250521)
 
 # Source functions and parameters 
 source("R/parameters.R")
@@ -42,6 +42,7 @@ sim <- simulation (patches = patches,
                    daily_transition = daily_transition,
                    alpha = alpha,
                    beta = beta,
+                   effect_size_factor = effect_size_factor,
                    sim_days = sim_days,
                    dispersal_matrix = dispersal_matrix,
                    daily_temp = temp[day],

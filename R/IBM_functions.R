@@ -36,11 +36,12 @@ growth <- function(pop_patches,
                    daily_transition,
                    alpha,
                    beta,
+                   effect_size_factor,
                    sim_days,
                    daily_temp,
                    sigma) {
   
-  #if (sim_days == 10) browser()
+  if (sim_days == 30) browser()
   
   updated_pop_patches <- list()
   
@@ -49,16 +50,6 @@ growth <- function(pop_patches,
 
     male <- pop |> filter(sex == 0, stage == "adult")    # All males
     fem <- pop |> filter(sex == 1, stage == "adult")     # All females
-
-    # # Gene drive non-lethal effect:
-    # # female individual homozygous alleles at any locus  are completely sterile
-    # # females with a drive & a non-functional resistant allele are also sterile
-
-    # fertile_fem <- fem |>
-    #   filter(apply(fem$allele1 == 1 & fem$allele2 == 1, 1, all) == FALSE)
-
-    # # All mated fertile females
-    # mated_fem <- round(rbinom(1, nrow(fertile_fem), mate_prob))
 
     offspring_list <- list()
     if (nrow(fem) > 0 && nrow(male) > 0)
@@ -72,12 +63,20 @@ growth <- function(pop_patches,
         # Bernoulli trial for mating and feeding (1 if mated, 0 if not)
 
         if (rbinom(1, 1, (nrow(male)/(beta + nrow(male)))) == 1 && rbinom(1, 1, bloodmeal_prob) == 1) {   #  (nrow(male)/(beta + nrow(male)))) is the mating probability which increases as male population increases (North and Godfray; Malar J (2018) 17:140) 
-          # population 
-
+         
           # If bloodfed, calculate expected offspring for this female
-          exp_offspring <- fecundity
+          # exp_offspring <- fecundity
+          
+          
+          # Effect size of genetic load: additive effect from 0 to 1 as the 
+          # number loci homozygous for the lethal gene increases
+           
+          no_homo_loci <- sum(fem[j,]$allele1 == 1 & fem[j,]$allele2 == 1)
+          exp_offspring <- round(fecundity * exp(-effect_size_factor * no_homo_loci))
+          
           # Draw the actual number of offspring from a Poisson distribution
           n_offspring <- rpois(1, exp_offspring)
+          
         } else {
           # If not, set offspring count to 0
           n_offspring <- 0
@@ -98,37 +97,37 @@ growth <- function(pop_patches,
           fem_germline <- fem_germline |> select(contains("allele"))
           
     # Genetic inheritance and Drive conversion
-     
-        drive_conversion <- function(parent, prob1, prob2) {
-        if (any(is.na(parent$allele1)) || any(is.na(parent$allele2))) {
-            warning("NA detected in allele input!")
-          }
-        heterozygous <- (parent$allele1 + parent$allele2) == 1
-        # Drive conversion 95% conversion rate
-        converted <- rbinom(length(parent$allele1), 1, prob1) # drive conversion at each locus
-        conv_event <- converted*heterozygous # conversion event?
-        parent$allele1[parent$allele1 == 0 & conv_event == 1] <- 1 # successful conversions
-        parent$allele2[parent$allele2 == 0 & conv_event == 1] <- 1
-        
-        # Resistance development (0 → 2) 
-        failed_conv <- heterozygous & conv_event == 0
-        resistance_event <- rbinom(length(parent$allele1), 1, prob2)
-        parent$allele1[parent$allele1 == 0 & failed_conv & resistance_event == 1] <- 2  # Thoughts/To do: individuals that did not develop resistance, yet heterozygous can be can be designated as those with functional resistance and resistant to future Cas9 cutting 
-        parent$allele2[parent$allele2 == 0 & failed_conv & resistance_event == 1] <- 2
-        
-        return(parent)
-      }
-      
 
-        fem_gametes <- drive_conversion(fem_germline, conversion_prob, resistance_prob)   # dams with drive converted germ line
-        male_gametes <- drive_conversion(male_germline, conversion_prob, resistance_prob) # sires with drive converted germ line
+          drive_conversion <- function(parent, prob1, prob2) {
+          if (any(is.na(parent$allele1)) || any(is.na(parent$allele2))) {
+              warning("NA detected in allele input!")
+            }
+          heterozygous <- (parent$allele1 + parent$allele2) == 1
+          # Drive conversion 95% conversion rate
+          converted <- rbinom(length(parent$allele1), 1, prob1) # drive conversion at each locus
+          conv_event <- converted*heterozygous # conversion event?
+          parent$allele1[parent$allele1 == 0 & conv_event == 1] <- 1 # successful conversions
+          parent$allele2[parent$allele2 == 0 & conv_event == 1] <- 1
+  
+          # Resistance development (0 → 2)
+          failed_conv <- heterozygous & conv_event == 0
+          resistance_event <- rbinom(length(parent$allele1), 1, prob2)
+          parent$allele1[parent$allele1 == 0 & failed_conv & resistance_event == 1] <- 2  # Thoughts/To do: individuals that did not develop resistance, yet heterozygous can be can be designated as those with functional resistance and resistant to future Cas9 cutting
+          parent$allele2[parent$allele2 == 0 & failed_conv & resistance_event == 1] <- 2
+  
+          return(parent)
+        }
+        
+        
+        fem_germline <- drive_conversion(fem_germline, conversion_prob, resistance_prob)   # dams with drive converted germ line
+        male_germline <- drive_conversion(male_germline, conversion_prob, resistance_prob) # sires with drive converted germ line
       
       
         # Genetic inheritance
-        total_offspring <- nrow(fem_gametes)
+        total_offspring <- nrow(fem_germline)
         stopifnot(total_offspring == n_offspring)
         
-        num_loci <- ncol(fem_gametes$allele1)
+        num_loci <- ncol(fem_germline$allele1)
         stopifnot(num_loci == n_loci)
         
         # random selection of allele
@@ -143,15 +142,15 @@ growth <- function(pop_patches,
           stage = "egg",
           alive = TRUE,
           allele1 = ifelse(which_allele,
-                           fem_gametes$allele1,
-                           fem_gametes$allele2),
+                           fem_germline$allele1,
+                           fem_germline$allele2),
           allele2 = ifelse(which_allele,
-                           male_gametes$allele1,
-                           male_gametes$allele2)
+                           male_germline$allele1,
+                           male_germline$allele2)
         )
 
     
-     # Gene drive lethal effect: mortality increases to 100% as homozygous locus reaches max.
+    # # Gene drive lethal effect: mortality increases to 100% as homozygous locus reaches max.
    
       # homozygous_drive <- (offspring$allele1 == 1) & (offspring$allele2 == 1)
       # num_drive_homozygous <- rowSums(homozygous_drive)
@@ -160,7 +159,7 @@ growth <- function(pop_patches,
       # offspring$alive <- rbinom(n = length(survival_prob), size = 1, prob = survival_prob) == 1
       # offspring <- filter(offspring, alive)
       
-      # Add offspring to main population
+    # Add offspring to main population
  
         offspring_list[[length(offspring_list) + 1]] <- offspring
       }
@@ -304,6 +303,7 @@ simulation <- function(patches,
                        daily_transition,
                        alpha,
                        beta,
+                       effect_size_factor,
                        sim_days,
                        dispersal_matrix,
                        daily_temp,
@@ -327,6 +327,7 @@ simulation <- function(patches,
                   daily_transition,
                   alpha,
                   beta,
+                  effect_size_factor,
                   sim_days = day,
                   daily_temp = temp[day],
                   sigma)

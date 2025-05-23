@@ -1,7 +1,7 @@
 # parameters
 
-patches <- 3                         # Number of patches
-n_per_patch <- c(5000, 0, 0)         # Initial number of individuals per patch
+patches <- 5                         # Number of patches
+n_per_patch <- c(5000,0,0,0,0)         # Initial number of individuals per patch
 daily_survival <- c(egg = 0.8,       # daily survival prob
                     larva = 0.80, 
                     pupa = 0.75, 
@@ -10,7 +10,7 @@ daily_transition <- c(egg = 0.5,
                       larva = 0.5,
                       pupa = 0.5)    # daily transition prob
 fecundity <- 10                      # Number of offspring per day per female mosquito
-beta <- 10                           # the adult male population size at which the daily probability of mating is 0.5.
+beta <- 50                           # the adult male population size at which the daily probability of mating is 0.5.
 sim_days <- 15                       # Number of simulation in days
 bloodmeal_prob <- 0.75               # Probability that a female find a blood meal
 
@@ -19,9 +19,10 @@ lambda <- 0.2
 dispersal_frac <- 0.05
 
 # Gene Drive Parameters
-n_loci <- 5
+n_loci <- 20
 conversion_prob <- 0.95  # Rate at which the drive allele converts the wild-type allele
 resistance_prob <- 0.5   # prob resistance development or conversion failure
+effect_size_factor <- 0.1
 
 
 # Environmental/ecological
