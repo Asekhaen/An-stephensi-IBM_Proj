@@ -12,11 +12,12 @@ ini_pop <- function(patches, n_per_patch, coords, loci) {
   patches_pop <- list()
   
   # a function to place loci at random on the genome (of size = 1)
-  place_loci_matrix <- function(loci, genome.size = 1){
-    runif(loci)
+  place_loci_mat <- function(loci, genome.size){
+   loci_positions <- runif(loci, max = genome.size)
+   loci_pos_matrix <- as.matrix(dist(loci_positions))^2 
+   return(loci_pos_matrix)
   }
   
-  loc.positions_mat <- as.matrix(dist(place_loci(loci)))^2 
   
   
   # a function to calculate covariance matrix given loci placements
