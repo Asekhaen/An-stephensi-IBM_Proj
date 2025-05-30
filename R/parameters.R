@@ -20,9 +20,10 @@ dispersal_frac <- 0.05
 
 # Gene Drive Parameters
 n_loci <- 20
+init_frequency = 0.03 # initial frequency of deleterious recessives
 conversion_prob <- 0.95  # Rate at which the drive allele converts the wild-type allele
 resistance_prob <- 0.5   # prob resistance development or conversion failure
-effect_size_factor <- 0.1
+fecundity_effect <- 0.1 # effect per homozygous deleterious recessive on fecundity
 decay <- 0.5
 
 

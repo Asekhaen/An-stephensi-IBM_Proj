@@ -8,7 +8,7 @@ colnames(coords) <- c("x","y")
 
 #### Initialise population ####
 
-ini_pop <- function(patches, n_per_patch, coords, loci) {
+ini_pop <- function(patches, n_per_patch, coords, loci, init_frequency) {
   patches_pop <- list()
   
   for (i in 1:patches) {
@@ -16,8 +16,8 @@ ini_pop <- function(patches, n_per_patch, coords, loci) {
       sex = rbinom(n_per_patch[i], 1, 0.5), # Female == 1, random sex
       stage = sample(c("egg", "larva", "pupa", "adult"), n_per_patch[i], replace = TRUE),
       alive = TRUE,
-      allele1 = matrix(sample(c(0, 1), n_per_patch[i] * n_loci, replace = TRUE, prob = c(0,1)), ncol = n_loci,), # 0 = wild-type, 1 = drive allele
-      allele2 = matrix(sample(c(0, 1), n_per_patch[i] * n_loci, replace = TRUE, prob = c(1,0)), ncol = n_loci)
+      allele1 = matrix(rbinom(n = n_per_patch[i] * n_loci, size = 1, prob = init_frequency), ncol = n_loci), # 0 = wild-type, 1 = drive allele
+      allele2 = matrix(rbinom(n = n_per_patch[i] * n_loci, size = 1, prob = init_frequency), ncol = n_loci)
     )
     if (length(n_per_patch) != patches) warning("Initial patch population does not equal specified number of patches")
   }
@@ -50,7 +50,8 @@ growth <- function(pop_patches,
                    alpha,
                    beta,
                    decay,
-                   effect_size_factor,
+                   fecundity_effect,
+                   lethal_effect,
                    sim_days,
                    daily_temp,
                    sigma,
@@ -79,12 +80,12 @@ growth <- function(pop_patches,
 
         if (rbinom(1, 1, (nrow(male)/(beta + nrow(male)))) == 1 && rbinom(1, 1, bloodmeal_prob) == 1) {   #  (nrow(male)/(beta + nrow(male)))) is the mating probability which increases as male population increases (North and Godfray; Malar J (2018) 17:140) 
          
+          # effect of load on fecundity. to turn this effect off, set fecundity_effect = 0 in function call
           # If bloodfed, calculate expected offspring for this female
           # Effect size of genetic load: additive effect from 0 to 1 as the 
           # number loci homozygous for the lethal gene increases
-          # Note, to turn this effect off, set effect_size_factor = 0 in function call
           no_homo_loci <- sum(fem[j,]$allele1 == 1 & fem[j,]$allele2 == 1)
-          exp_offspring <- fecundity * exp(-effect_size_factor * no_homo_loci)
+          exp_offspring <- fecundity * exp(-fecundity_effect * no_homo_loci)
 
           
           # Draw the actual number of offspring from a Poisson distribution
@@ -167,15 +168,12 @@ growth <- function(pop_patches,
         )
 
     
-    # # Gene drive lethal effect: mortality increases to 100% as homozygous locus reaches max.
-   
-      # homozygous_drive <- (offspring$allele1 == 1) & (offspring$allele2 == 1)
-      # num_drive_homozygous <- rowSums(homozygous_drive)
-      # max_homozygous <- ncol(offspring$allele1)
-      # survival_prob <- 1 - (num_drive_homozygous/max_homozygous)
-      # offspring$alive <- rbinom(n = length(survival_prob), size = 1, prob = survival_prob) == 1
-      # offspring <- filter(offspring, alive)
-      
+    # # Gene drive lethal effect
+    if (lethal_effect){
+      homozygous_lethal <- (offspring$allele1 == 1) & (offspring$allele2 == 1)
+      any_homozygous <- rowSums(homozygous_lethal) > 0
+      offspring <- filter(offspring, !any_homozygous)
+    }
     # Add offspring to main population
  
         offspring_list[[length(offspring_list) + 1]] <- offspring
@@ -310,7 +308,8 @@ dispersal <- function(pop, dispersal_matrix, check = FALSE) {
 simulation <- function(patches,
                        n_per_patch, 
                        coords,
-                       n_loci, 
+                       n_loci,
+                       init_frequency,
                        bloodmeal_prob, 
                        fecundity, 
                        conversion_prob,
@@ -320,12 +319,13 @@ simulation <- function(patches,
                        alpha,
                        beta,
                        decay,
-                       effect_size_factor,
+                       fecundity_effect,
+                       lethal_effect,
                        sim_days,
                        dispersal_matrix,
                        daily_temp,
                        sigma) {
-  pop <- ini_pop(patches, n_per_patch, coords, n_loci)
+  pop <- ini_pop(patches, n_per_patch, coords, n_loci, init_frequency)
   l.cov.mat <- place_loci_mat(n_loci, genome.size = 1, var = 1, decay)
   
   patch_sizes <- list()
@@ -346,7 +346,8 @@ simulation <- function(patches,
                   alpha,
                   beta,
                   decay,
-                  effect_size_factor,
+                  fecundity_effect,
+                  lethal_effect,
                   sim_days = day,
                   daily_temp = temp[day],
                   sigma,
