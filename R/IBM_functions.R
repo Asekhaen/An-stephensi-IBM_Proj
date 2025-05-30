@@ -30,14 +30,11 @@ ini_pop <- function(patches, n_per_patch, coords, loci) {
 # Loci selection matrix: function to place loci at random on the genome (of size = 1)
 # also takes exponential decay and variance to produce variance-covariance matrix
 
-place_loci_mat <- function(loci, genome.size = 1, var = 1, decay, mean_prob = 0.5){
+place_loci_mat <- function(loci, genome.size = 1, var = 1, decay){
   loci_positions <- sort(runif(loci, max = genome.size))
   loci_dist_matrix <- as.matrix(dist(loci_positions))^2 
   loci_cov_matrix <- var*exp(-decay*loci_dist_matrix)
-  epsilon <- MASS::mvrnorm(1, rep(0, loci), Sigma = loci_cov_matrix)
-  selection_prob <- plogis(qlogis(mean_prob) + epsilon)
-  
-  return(selection_prob)
+  return(loci_cov_matrix)
 }
 
 
@@ -56,7 +53,8 @@ growth <- function(pop_patches,
                    effect_size_factor,
                    sim_days,
                    daily_temp,
-                   sigma) {
+                   sigma,
+                   loci_cov_matrix) {
   
   #if (sim_days == 100) browser()
   
@@ -89,8 +87,7 @@ growth <- function(pop_patches,
           # number loci homozygous for the lethal gene increases
 
           no_homo_loci <- sum(fem[j,]$allele1 == 1 & fem[j,]$allele2 == 1)
-<<<<<<< Updated upstream
-          exp_offspring <- round(exp_offspring * exp(-effect_size_factor * no_homo_loci))
+          exp_offspring <- exp_offspring * exp(-effect_size_factor * no_homo_loci)
 
           #OR
 
@@ -99,10 +96,6 @@ growth <- function(pop_patches,
           # effect_size_factor <- 1 - (no_homo_loci/max_homo_loci)
           # exp_offspring <- round(exp_offspring * effect_size_factor)
           # 
-
-=======
-          exp_offspring <- fecundity * exp(-effect_size_factor * no_homo_loci)
->>>>>>> Stashed changes
           
           # Draw the actual number of offspring from a Poisson distribution
           n_offspring <- rpois(1, exp_offspring)
@@ -154,34 +147,31 @@ growth <- function(pop_patches,
       
       
         # Genetic inheritance
-        total_offspring <- nrow(fem_germline)
-        stopifnot(total_offspring == n_offspring)
-        
         num_loci <- ncol(fem_germline$allele1)
         stopifnot(num_loci == n_loci)
         
         
-        # linkage loci selection
+        # random selection of allele, with linkage 
+        which_allele_fn <- function(n_offspring, num_loci, loci_cov_matrix){
+          epsilon <- MASS::mvrnorm(n_offspring, rep(0, num_loci), Sigma = loci_cov_matrix)
+          selection_prob <- plogis(epsilon)
+          matrix(rbinom(n_offspring * num_loci, 1, selection_prob) == 1,
+                 nrow = n_offspring,
+                 ncol = num_loci)
+        }
         
-        selection_prob <- place_loci_mat(loci = n_loci, 
-                                                 decay = decay)
-        
-        # random selection of allele
-        
-        which_allele <- matrix(rbinom(total_offspring * num_loci, 1, selection_prob) == 0,
-                               nrow = total_offspring,
-                               ncol = num_loci)
-        
+        which_allele_female <- which_allele_fn(n_offspring, num_loci, loci_cov_matrix) #female gametes
+        which_allele_male <- which_allele_fn(n_offspring, num_loci, loci_cov_matrix) # male gametes
         
         #  Determination of offspring features
         offspring <- tibble(
           sex = rbinom(n_offspring, 1, 0.5),
           stage = "egg",
           alive = TRUE,
-          allele1 = ifelse(which_allele,
+          allele1 = ifelse(which_allele_female,
                            fem_germline$allele1,
                            fem_germline$allele2),
-          allele2 = ifelse(which_allele,
+          allele2 = ifelse(which_allele_male,
                            male_germline$allele1,
                            male_germline$allele2)
         )
@@ -346,6 +336,7 @@ simulation <- function(patches,
                        daily_temp,
                        sigma) {
   pop <- ini_pop(patches, n_per_patch, coords, n_loci)
+  l.cov.mat <- place_loci_mat(n_loci, genome.size = 1, var = 1, decay)
   
   patch_sizes <- list()
   stage_distributions <- list()
@@ -368,7 +359,8 @@ simulation <- function(patches,
                   effect_size_factor,
                   sim_days = day,
                   daily_temp = temp[day],
-                  sigma)
+                  sigma,
+                  loci_cov_matrix = l.cov.mat)
     
     # Dispersal
     pop <- dispersal(pop, dispersal_matrix)
