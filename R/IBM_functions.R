@@ -16,13 +16,28 @@ ini_pop <- function(patches, n_per_patch, coords, loci) {
       sex = rbinom(n_per_patch[i], 1, 0.5), # Female == 1, random sex
       stage = sample(c("egg", "larva", "pupa", "adult"), n_per_patch[i], replace = TRUE),
       alive = TRUE,
-      allele1 = matrix(sample(c(0, 1), n_per_patch[i] * n_loci, replace = TRUE, prob = c(0.95,0.05)), ncol = n_loci,), # 0 = wild-type, 1 = drive allele
+      allele1 = matrix(sample(c(0, 1), n_per_patch[i] * n_loci, replace = TRUE, prob = c(0,1)), ncol = n_loci,), # 0 = wild-type, 1 = drive allele
       allele2 = matrix(sample(c(0, 1), n_per_patch[i] * n_loci, replace = TRUE, prob = c(1,0)), ncol = n_loci)
     )
     if (length(n_per_patch) != patches) warning("Initial patch population does not equal specified number of patches")
   }
   
   return(patches_pop)
+}
+
+
+
+# Loci selection matrix: function to place loci at random on the genome (of size = 1)
+# also takes exponential decay and variance to produce variance-covariance matrix
+
+place_loci_mat <- function(loci, genome.size = 1, var = 1, decay, mean_prob = 0.5){
+  loci_positions <- sort(runif(loci, max = genome.size))
+  loci_dist_matrix <- as.matrix(dist(loci_positions))^2 
+  loci_cov_matrix <- var*exp(-decay*loci_dist_matrix)
+  epsilon <- MASS::mvrnorm(1, rep(0, loci), Sigma = loci_cov_matrix)
+  selection_prob <- plogis(qlogis(mean_prob) + epsilon)
+  
+  return(selection_prob)
 }
 
 
@@ -43,7 +58,7 @@ growth <- function(pop_patches,
                    daily_temp,
                    sigma) {
   
-  #if (sim_days == 15) browser()
+  #if (sim_days == 100) browser()
   
   updated_pop_patches <- list()
   
@@ -67,14 +82,23 @@ growth <- function(pop_patches,
         if (rbinom(1, 1, (nrow(male)/(beta + nrow(male)))) == 1 && rbinom(1, 1, bloodmeal_prob) == 1) {   #  (nrow(male)/(beta + nrow(male)))) is the mating probability which increases as male population increases (North and Godfray; Malar J (2018) 17:140) 
          
           # If bloodfed, calculate expected offspring for this female
-          # exp_offspring <- fecundity
+          exp_offspring <- fecundity
           
           
           # Effect size of genetic load: additive effect from 0 to 1 as the 
           # number loci homozygous for the lethal gene increases
-           
+
           no_homo_loci <- sum(fem[j,]$allele1 == 1 & fem[j,]$allele2 == 1)
-          exp_offspring <- round(fecundity * exp(-effect_size_factor * no_homo_loci))
+          exp_offspring <- round(exp_offspring * exp(-effect_size_factor * no_homo_loci))
+
+          #OR
+
+          # # n_homo_loci <- sum(fem[j,]$allele1 == 1 & fem[j,]$allele2 == 1)
+          # max_homo_loci <- n_loci
+          # effect_size_factor <- 1 - (no_homo_loci/max_homo_loci)
+          # exp_offspring <- round(exp_offspring * effect_size_factor)
+          # 
+
           
           # Draw the actual number of offspring from a Poisson distribution
           n_offspring <- rpois(1, exp_offspring)
@@ -133,30 +157,14 @@ growth <- function(pop_patches,
         stopifnot(num_loci == n_loci)
         
         
-        # a function to place loci at random on the genome (of size = 1)
-        # also takes exponential decay and variance to produce variance-covariance matrix
+        # linkage loci selection
         
-        place_loci_mat <- function(loci, genome.size = 1, var = 0.5, decay, mean_prob = 0.5){
-          loci_positions <- runif(loci, max = genome.size)
-          loci_dist_matrix <- as.matrix(dist(loci_positions))^2 
-          loci_cov_matrix <- var*exp(-decay*loci_dist_matrix)
-          epsilon <- MASS::mvrnorm(1, rep(0, loci), Sigma = loci_cov_matrix)
-          selection_prob <- plogis(qlogis(mean_prob) + epsilon)
-          
-          return(list(loci_positions = loci_positions, 
-                      loci_dist_matrix = loci_dist_matrix, 
-                      loci_cov_matrix = loci_cov_matrix,
-                      epsilon = epsilon,
-                      selection_prob = selection_prob))
-        }
-        
-        
-        linkage_selection_prob <- place_loci_mat(loci = n_loci, 
+        selection_prob <- place_loci_mat(loci = n_loci, 
                                                  decay = decay)
         
         # random selection of allele
         
-        which_allele <- matrix(rbinom(total_offspring * num_loci, 1, linkage_selection_prob$selection_prob) == 0,
+        which_allele <- matrix(rbinom(total_offspring * num_loci, 1, selection_prob) == 0,
                                nrow = total_offspring,
                                ncol = num_loci)
         
@@ -223,9 +231,9 @@ growth <- function(pop_patches,
     pop <- pop |>
       mutate(
         stage = case_when(
-          stage == "egg" & rbinom(n(), 1, daily_transition["egg"]) == 1 ~ "larva",
-          stage == "larva" & rbinom(n(), 1, daily_transition["larva"]) == 1 ~ "pupa",
-          stage == "pupa" & rbinom(n(), 1, daily_transition["pupa"]) == 1 ~ "adult",
+          stage == "egg" & rbinom(n(), 1, daily_transition["egg_larva"]) == 1 ~ "larva",
+          stage == "larva" & rbinom(n(), 1, daily_transition["larva_pupa"]) == 1 ~ "pupa",
+          stage == "pupa" & rbinom(n(), 1, daily_transition["pupa_adult"]) == 1 ~ "adult",
           TRUE ~ stage
         )
       )
@@ -312,7 +320,6 @@ dispersal <- function(pop, dispersal_matrix, check = FALSE) {
   
   return(dispersed_pop)
 }
-
 
 
 #### Simulation: Bring them all together ####
