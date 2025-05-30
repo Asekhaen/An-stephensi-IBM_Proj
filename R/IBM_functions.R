@@ -89,6 +89,7 @@ growth <- function(pop_patches,
           # number loci homozygous for the lethal gene increases
 
           no_homo_loci <- sum(fem[j,]$allele1 == 1 & fem[j,]$allele2 == 1)
+<<<<<<< Updated upstream
           exp_offspring <- round(exp_offspring * exp(-effect_size_factor * no_homo_loci))
 
           #OR
@@ -99,6 +100,9 @@ growth <- function(pop_patches,
           # exp_offspring <- round(exp_offspring * effect_size_factor)
           # 
 
+=======
+          exp_offspring <- fecundity * exp(-effect_size_factor * no_homo_loci)
+>>>>>>> Stashed changes
           
           # Draw the actual number of offspring from a Poisson distribution
           n_offspring <- rpois(1, exp_offspring)
