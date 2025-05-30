@@ -80,22 +80,12 @@ growth <- function(pop_patches,
         if (rbinom(1, 1, (nrow(male)/(beta + nrow(male)))) == 1 && rbinom(1, 1, bloodmeal_prob) == 1) {   #  (nrow(male)/(beta + nrow(male)))) is the mating probability which increases as male population increases (North and Godfray; Malar J (2018) 17:140) 
          
           # If bloodfed, calculate expected offspring for this female
-          exp_offspring <- fecundity
-          
-          
           # Effect size of genetic load: additive effect from 0 to 1 as the 
           # number loci homozygous for the lethal gene increases
-
+          # Note, to turn this effect off, set effect_size_factor = 0 in function call
           no_homo_loci <- sum(fem[j,]$allele1 == 1 & fem[j,]$allele2 == 1)
-          exp_offspring <- exp_offspring * exp(-effect_size_factor * no_homo_loci)
+          exp_offspring <- fecundity * exp(-effect_size_factor * no_homo_loci)
 
-          #OR
-
-          # # n_homo_loci <- sum(fem[j,]$allele1 == 1 & fem[j,]$allele2 == 1)
-          # max_homo_loci <- n_loci
-          # effect_size_factor <- 1 - (no_homo_loci/max_homo_loci)
-          # exp_offspring <- round(exp_offspring * effect_size_factor)
-          # 
           
           # Draw the actual number of offspring from a Poisson distribution
           n_offspring <- rpois(1, exp_offspring)
