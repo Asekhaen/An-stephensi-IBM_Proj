@@ -7,7 +7,8 @@ colnames(coords) <- c("x","y")
 
 
 #### Initialise population ####
-ini_pop <- function(patches, n_per_patch, coords, loci) {
+
+ini_pop <- function(patches, n_per_patch, coords, loci, init_frequency) {
   patches_pop <- list()
   
   for (i in 1:patches) {
@@ -15,13 +16,25 @@ ini_pop <- function(patches, n_per_patch, coords, loci) {
       sex = rbinom(n_per_patch[i], 1, 0.5), # Female == 1, random sex
       stage = sample(c("egg", "larva", "pupa", "adult"), n_per_patch[i], replace = TRUE),
       alive = TRUE,
-      allele1 = matrix(sample(c(0, 1), n_per_patch[i] * n_loci, replace = TRUE, prob = c(0.95,0.05)), ncol = n_loci,), # 0 = wild-type, 1 = drive allele
-      allele2 = matrix(sample(c(0, 1), n_per_patch[i] * n_loci, replace = TRUE, prob = c(1,0)), ncol = n_loci)
+      allele1 = matrix(rbinom(n = n_per_patch[i] * n_loci, size = 1, prob = init_frequency), ncol = n_loci), # 0 = wild-type, 1 = drive allele
+      allele2 = matrix(rbinom(n = n_per_patch[i] * n_loci, size = 1, prob = init_frequency), ncol = n_loci)
     )
     if (length(n_per_patch) != patches) warning("Initial patch population does not equal specified number of patches")
   }
   
   return(patches_pop)
+}
+
+
+
+# Loci selection matrix: function to place loci at random on the genome (of size = 1)
+# also takes exponential decay and variance to produce variance-covariance matrix
+
+place_loci_mat <- function(loci, genome.size = 1, var = 1, decay){
+  loci_positions <- sort(runif(loci, max = genome.size))
+  loci_dist_matrix <- as.matrix(dist(loci_positions))^2 
+  loci_cov_matrix <- var*exp(-decay*loci_dist_matrix)
+  return(loci_cov_matrix)
 }
 
 
@@ -36,12 +49,15 @@ growth <- function(pop_patches,
                    daily_transition,
                    alpha,
                    beta,
-                   effect_size_factor,
+                   decay,
+                   fecundity_effect,
+                   lethal_effect,
                    sim_days,
                    daily_temp,
-                   sigma) {
+                   sigma,
+                   loci_cov_matrix) {
   
-  if (sim_days == 30) browser()
+  #if (sim_days == 100) browser()
   
   updated_pop_patches <- list()
   
@@ -64,15 +80,13 @@ growth <- function(pop_patches,
 
         if (rbinom(1, 1, (nrow(male)/(beta + nrow(male)))) == 1 && rbinom(1, 1, bloodmeal_prob) == 1) {   #  (nrow(male)/(beta + nrow(male)))) is the mating probability which increases as male population increases (North and Godfray; Malar J (2018) 17:140) 
          
+          # effect of load on fecundity. to turn this effect off, set fecundity_effect = 0 in function call
           # If bloodfed, calculate expected offspring for this female
-          # exp_offspring <- fecundity
-          
-          
           # Effect size of genetic load: additive effect from 0 to 1 as the 
           # number loci homozygous for the lethal gene increases
-           
           no_homo_loci <- sum(fem[j,]$allele1 == 1 & fem[j,]$allele2 == 1)
-          exp_offspring <- round(fecundity * exp(-effect_size_factor * no_homo_loci))
+          exp_offspring <- fecundity * exp(-fecundity_effect * no_homo_loci)
+
           
           # Draw the actual number of offspring from a Poisson distribution
           n_offspring <- rpois(1, exp_offspring)
@@ -96,69 +110,70 @@ growth <- function(pop_patches,
           male_germline <- male_germline |> select(contains("allele"))
           fem_germline <- fem_germline |> select(contains("allele"))
           
-    # Genetic inheritance and Drive conversion
-
-          drive_conversion <- function(parent, prob1, prob2) {
-          if (any(is.na(parent$allele1)) || any(is.na(parent$allele2))) {
-              warning("NA detected in allele input!")
-            }
-          heterozygous <- (parent$allele1 + parent$allele2) == 1
-          # Drive conversion 95% conversion rate
-          converted <- rbinom(length(parent$allele1), 1, prob1) # drive conversion at each locus
-          conv_event <- converted*heterozygous # conversion event?
-          parent$allele1[parent$allele1 == 0 & conv_event == 1] <- 1 # successful conversions
-          parent$allele2[parent$allele2 == 0 & conv_event == 1] <- 1
-  
-          # Resistance development (0 → 2)
-          failed_conv <- heterozygous & conv_event == 0
-          resistance_event <- rbinom(length(parent$allele1), 1, prob2)
-          parent$allele1[parent$allele1 == 0 & failed_conv & resistance_event == 1] <- 2  # Thoughts/To do: individuals that did not develop resistance, yet heterozygous can be can be designated as those with functional resistance and resistant to future Cas9 cutting
-          parent$allele2[parent$allele2 == 0 & failed_conv & resistance_event == 1] <- 2
-  
-          return(parent)
-        }
-        
-        
-        fem_germline <- drive_conversion(fem_germline, conversion_prob, resistance_prob)   # dams with drive converted germ line
-        male_germline <- drive_conversion(male_germline, conversion_prob, resistance_prob) # sires with drive converted germ line
+    # # Genetic inheritance and Drive conversion
+    # 
+    #     drive_conversion <- function(parent, prob1, prob2) {
+    #       if (any(is.na(parent$allele1)) || any(is.na(parent$allele2))) {
+    #           warning("NA detected in allele input!")
+    #         }
+    #       heterozygous <- (parent$allele1 + parent$allele2) == 1
+    #       # Drive conversion 95% conversion rate
+    #       converted <- rbinom(length(parent$allele1), 1, prob1) # drive conversion at each locus
+    #       conv_event <- converted*heterozygous # conversion event?
+    #       parent$allele1[parent$allele1 == 0 & conv_event == 1] <- 1 # successful conversions
+    #       parent$allele2[parent$allele2 == 0 & conv_event == 1] <- 1
+    # 
+    #       # Resistance development (0 → 2)
+    #       failed_conv <- heterozygous & conv_event == 0
+    #       resistance_event <- rbinom(length(parent$allele1), 1, prob2)
+    #       parent$allele1[parent$allele1 == 0 & failed_conv & resistance_event == 1] <- 2  # Thoughts/To do: individuals that did not develop resistance, yet heterozygous can be can be designated as those with functional resistance and resistant to future Cas9 cutting
+    #       parent$allele2[parent$allele2 == 0 & failed_conv & resistance_event == 1] <- 2
+    # 
+    #       return(parent)
+    #     }
+    #     
+    #     
+    #     fem_germline <- drive_conversion(fem_germline, conversion_prob, resistance_prob)   # dams with drive converted germ line
+    #     male_germline <- drive_conversion(male_germline, conversion_prob, resistance_prob) # sires with drive converted germ line
       
       
         # Genetic inheritance
-        total_offspring <- nrow(fem_germline)
-        stopifnot(total_offspring == n_offspring)
-        
         num_loci <- ncol(fem_germline$allele1)
         stopifnot(num_loci == n_loci)
         
-        # random selection of allele
         
-        which_allele <- matrix(rbinom(total_offspring * num_loci, 1, 0.5) == 0,
-                               nrow = total_offspring,
-                               ncol = num_loci)
+        # random selection of allele, with linkage 
+        which_allele_fn <- function(n_offspring, num_loci, loci_cov_matrix){
+          epsilon <- MASS::mvrnorm(n_offspring, rep(0, num_loci), Sigma = loci_cov_matrix)
+          selection_prob <- plogis(epsilon)
+          matrix(rbinom(n_offspring * num_loci, 1, selection_prob) == 1,
+                 nrow = n_offspring,
+                 ncol = num_loci)
+        }
+        
+        which_allele_female <- which_allele_fn(n_offspring, num_loci, loci_cov_matrix) #female gametes
+        which_allele_male <- which_allele_fn(n_offspring, num_loci, loci_cov_matrix) # male gametes
         
         #  Determination of offspring features
         offspring <- tibble(
           sex = rbinom(n_offspring, 1, 0.5),
           stage = "egg",
           alive = TRUE,
-          allele1 = ifelse(which_allele,
+          allele1 = ifelse(which_allele_female,
                            fem_germline$allele1,
                            fem_germline$allele2),
-          allele2 = ifelse(which_allele,
+          allele2 = ifelse(which_allele_male,
                            male_germline$allele1,
                            male_germline$allele2)
         )
 
     
-    # # Gene drive lethal effect: mortality increases to 100% as homozygous locus reaches max.
-   
-      # homozygous_drive <- (offspring$allele1 == 1) & (offspring$allele2 == 1)
-      # num_drive_homozygous <- rowSums(homozygous_drive)
-      # max_homozygous <- ncol(offspring$allele1)
-      # survival_prob <- 1 - (num_drive_homozygous/max_homozygous)
-      # offspring$alive <- rbinom(n = length(survival_prob), size = 1, prob = survival_prob) == 1
-      # offspring <- filter(offspring, alive)
-      
+    # # Gene drive lethal effect
+    if (lethal_effect){
+      homozygous_lethal <- (offspring$allele1 == 1) & (offspring$allele2 == 1)
+      any_homozygous <- rowSums(homozygous_lethal) > 0
+      offspring <- filter(offspring, !any_homozygous)
+    }
     # Add offspring to main population
  
         offspring_list[[length(offspring_list) + 1]] <- offspring
@@ -198,9 +213,9 @@ growth <- function(pop_patches,
     pop <- pop |>
       mutate(
         stage = case_when(
-          stage == "egg" & rbinom(n(), 1, daily_transition["egg"]) == 1 ~ "larva",
-          stage == "larva" & rbinom(n(), 1, daily_transition["larva"]) == 1 ~ "pupa",
-          stage == "pupa" & rbinom(n(), 1, daily_transition["pupa"]) == 1 ~ "adult",
+          stage == "egg" & rbinom(n(), 1, daily_transition["egg_larva"]) == 1 ~ "larva",
+          stage == "larva" & rbinom(n(), 1, daily_transition["larva_pupa"]) == 1 ~ "pupa",
+          stage == "pupa" & rbinom(n(), 1, daily_transition["pupa_adult"]) == 1 ~ "adult",
           TRUE ~ stage
         )
       )
@@ -289,12 +304,12 @@ dispersal <- function(pop, dispersal_matrix, check = FALSE) {
 }
 
 
-
 #### Simulation: Bring them all together ####
 simulation <- function(patches,
                        n_per_patch, 
                        coords,
-                       n_loci, 
+                       n_loci,
+                       init_frequency,
                        bloodmeal_prob, 
                        fecundity, 
                        conversion_prob,
@@ -303,12 +318,15 @@ simulation <- function(patches,
                        daily_transition,
                        alpha,
                        beta,
-                       effect_size_factor,
+                       decay,
+                       fecundity_effect,
+                       lethal_effect,
                        sim_days,
                        dispersal_matrix,
                        daily_temp,
                        sigma) {
-  pop <- ini_pop(patches, n_per_patch, coords, n_loci)
+  pop <- ini_pop(patches, n_per_patch, coords, n_loci, init_frequency)
+  l.cov.mat <- place_loci_mat(n_loci, genome.size = 1, var = 1, decay)
   
   patch_sizes <- list()
   stage_distributions <- list()
@@ -327,10 +345,13 @@ simulation <- function(patches,
                   daily_transition,
                   alpha,
                   beta,
-                  effect_size_factor,
+                  decay,
+                  fecundity_effect,
+                  lethal_effect,
                   sim_days = day,
                   daily_temp = temp[day],
-                  sigma)
+                  sigma,
+                  loci_cov_matrix = l.cov.mat)
     
     # Dispersal
     pop <- dispersal(pop, dispersal_matrix)
