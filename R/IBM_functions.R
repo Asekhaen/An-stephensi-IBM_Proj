@@ -57,7 +57,7 @@ growth <- function(pop_patches,
                    sigma,
                    loci_cov_matrix) {
   
-  #if (sim_days == 100) browser()
+ #if (sim_days == 12) browser()
   
   updated_pop_patches <- list()
   
@@ -69,7 +69,7 @@ growth <- function(pop_patches,
 
     offspring_list <- list()
     if (nrow(fem) > 0 && nrow(male) > 0)
-      # Loop through each female to simulate mating, bloodfeeding, and egg/ofspring production
+      # Loop through each female to simulate mating, bloodfeeding, and egg/offspring production
       for (j in 1:nrow(fem)) {
         
         # select a mate
@@ -168,12 +168,14 @@ growth <- function(pop_patches,
         )
 
     
-    # # Gene drive lethal effect
+    # Genetic load: lethal effect
+    
     if (lethal_effect){
       homozygous_lethal <- (offspring$allele1 == 1) & (offspring$allele2 == 1)
       any_homozygous <- rowSums(homozygous_lethal) > 0
       offspring <- filter(offspring, !any_homozygous)
     }
+        
     # Add offspring to main population
  
         offspring_list[[length(offspring_list) + 1]] <- offspring
@@ -187,7 +189,8 @@ growth <- function(pop_patches,
   pop <- bind_rows(pop, offspring_df)
   
   
-    # Temperature-adjusted survival for larval and adult population
+    # Temperature-adjusted survival for larval and adult population: NOTE: set 
+    #  SD in "temp" to "0" to turn off temperature variation onn survival
     
     temp_effect <- exp(-((daily_temp - 25)^2) / (2 * sigma^2)) # Gaussian process (after Beck-Johnson et al., 2013). 
     temp_adjusted_survival <- daily_survival[c("adult","larva")] * temp_effect
@@ -331,7 +334,7 @@ simulation <- function(patches,
   patch_sizes <- list()
   stage_distributions <- list()
   for (day in 1:sim_days) {
-    #if (day == 6) browser()
+    #if (day == 9) browser()
     cat("Day", day, "Completed\n")
 
     # Growth with reproduction
