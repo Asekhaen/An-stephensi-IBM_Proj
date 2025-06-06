@@ -66,35 +66,41 @@ growth <- function(pop_patches,
 
     male <- pop |> filter(sex == 0, stage == "adult")    # All males
     fem <- pop |> filter(sex == 1, stage == "adult")     # All females
+    n.fem <- nrow(fem)
+    n.male <- nrow(male)
 
     offspring_list <- list()
     if (nrow(fem) > 0 && nrow(male) > 0)
+      # select a mate for each female
+      selected_male_index <- sample(x = n.male, size = n.fem, replace = TRUE)
+      selected_male <- male[selected_male_index, ]
+      
+      # Bernoulli trial for mating and feeding (1 if mated, 0 if not)
+      realised_mated <- rbinom(n = n.fem, 1, prob = (n.male/(beta + n.male))) #  (nrow(male)/(beta + nrow(male)))) is the mating probability which increases as male population increases (North and Godfray; Malar J (2018) 17:140) 
+      realised_bloodmeal <- rbinom(n = n.fem, 1, bloodmeal_prob)
+        
+      # effect of load on fecundity. to turn this effect off, set fecundity_effect = 0 in function call
+      # If bloodfed, calculate expected offspring for this female
+      # Effect size of genetic load: additive effect from 0 to 1 as the 
+      # number loci homozygous for the lethal gene increases
+      no_homo_loci <- sum(fem[j,]$allele1 == 1 & fem[j,]$allele2 == 1)
+      exp_offspring <- realised_mated*realised_bloodmeal*fecundity * exp(-fecundity_effect * no_homo_loci)
+        
+        
+        # Draw the actual number of offspring from a Poisson distribution
+        n_offspring <- rpois(1, exp_offspring)
+        
+      } else {
+        # If not, set offspring count to 0
+        n_offspring <- 0
+      }
+      
       # Loop through each female to simulate mating, bloodfeeding, and egg/offspring production
       for (j in 1:nrow(fem)) {
         
-        # select a mate
-        selected_male_index <- sample(nrow(male), 1, replace = TRUE)
-        selected_male <- male[selected_male_index, ]
         
-        # Bernoulli trial for mating and feeding (1 if mated, 0 if not)
-
-        if (rbinom(1, 1, (nrow(male)/(beta + nrow(male)))) == 1 && rbinom(1, 1, bloodmeal_prob) == 1) {   #  (nrow(male)/(beta + nrow(male)))) is the mating probability which increases as male population increases (North and Godfray; Malar J (2018) 17:140) 
-         
-          # effect of load on fecundity. to turn this effect off, set fecundity_effect = 0 in function call
-          # If bloodfed, calculate expected offspring for this female
-          # Effect size of genetic load: additive effect from 0 to 1 as the 
-          # number loci homozygous for the lethal gene increases
-          no_homo_loci <- sum(fem[j,]$allele1 == 1 & fem[j,]$allele2 == 1)
-          exp_offspring <- fecundity * exp(-fecundity_effect * no_homo_loci)
-
-          
-          # Draw the actual number of offspring from a Poisson distribution
-          n_offspring <- rpois(1, exp_offspring)
-          
-        } else {
-          # If not, set offspring count to 0
-          n_offspring <- 0
-        }
+        
+        
         
         
         if (n_offspring > 0) {
