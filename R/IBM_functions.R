@@ -58,19 +58,18 @@ growth <- function(pop_patches,
                    loci_cov_matrix) {
   
  #if (sim_days == 12) browser()
-  
   updated_pop_patches <- list()
   
   for (i in seq_along(pop_patches)) {
     pop <- pop_patches[[i]]  
-
+    
     male <- pop |> filter(sex == 0, stage == "adult")    # All males
     fem <- pop |> filter(sex == 1, stage == "adult")     # All females
     n.fem <- nrow(fem)
     n.male <- nrow(male)
 
     offspring_list <- list()
-    if (nrow(fem) > 0 && nrow(male) > 0)
+    if (n.fem > 0 && n.male > 0){
       # select a mate for each female
       selected_male_index <- sample(x = n.male, size = n.fem, replace = TRUE)
       selected_male <- male[selected_male_index, ]
@@ -83,39 +82,61 @@ growth <- function(pop_patches,
       # If bloodfed, calculate expected offspring for this female
       # Effect size of genetic load: additive effect from 0 to 1 as the 
       # number loci homozygous for the lethal gene increases
-      no_homo_loci <- sum(fem[j,]$allele1 == 1 & fem[j,]$allele2 == 1)
+      no_homo_loci <- apply((fem$allele1 + fem$allele2 == 2), 1, sum) # number of homozygous loci for each female
       exp_offspring <- realised_mated*realised_bloodmeal*fecundity * exp(-fecundity_effect * no_homo_loci)
-        
-        
-        # Draw the actual number of offspring from a Poisson distribution
-        n_offspring <- rpois(1, exp_offspring)
+      # Draw the actual number of offspring from a Poisson distribution
+      n_offspring <- rpois(n = n.fem, exp_offspring)
         
       } else {
         # If not, set offspring count to 0
-        n_offspring <- 0
+        n_offspring <- rep(0, n.fem)
       }
+      total_offspring <- sum(n_offspring)
       
-      # Loop through each female to simulate mating, bloodfeeding, and egg/offspring production
-      for (j in 1:nrow(fem)) {
-        
-        
-        
-        
-        
-        
-        if (n_offspring > 0) {
-          dams_data <- fem[j, ]             # Extract the mother's features
-          sires_data <- selected_male       # Extract the father's features
-          
-          # Replicate the parents features `n_offspring` times for each offspring
-          fem_germline <- dams_data[rep(1, n_offspring), ]
-          male_germline <- sires_data[rep(1, n_offspring), ]
-          
-          # select the genetic characteristcs 
-          
-          male_germline <- male_germline |> select(contains("allele"))
-          fem_germline <- fem_germline |> select(contains("allele"))
-          
+      if (total_offspring > 0){
+      # Replicate the parents features `n_offspring` times for each offspring, collect only genetic information
+        fem_germline <- fem[rep(1:n.fem, n_offspring), ] |> select(contains("allele"))
+        male_germline <- selected_male[rep(1:n.fem, n_offspring), ] |> select(contains("allele"))
+  
+        # Genetic inheritance
+        num_loci <- ncol(fem_germline$allele1)
+        stopifnot(num_loci == n_loci)
+      
+        # random selection of allele, with linkage 
+        which_allele_fn <- function(n_offspring, num_loci, loci_cov_matrix){
+          epsilon <- MASS::mvrnorm(n_offspring, rep(0, num_loci), Sigma = loci_cov_matrix)
+          selection_prob <- plogis(epsilon)
+          matrix(rbinom(n_offspring * num_loci, 1, selection_prob) == 1,
+               nrow = n_offspring,
+               ncol = num_loci)
+        }
+      
+        which_allele_female <- which_allele_fn(total_offspring, num_loci, loci_cov_matrix) #female gametes
+        which_allele_male <- which_allele_fn(total_offspring, num_loci, loci_cov_matrix) # male gametes
+      
+        #  Determination of offspring features
+        offspring <- tibble(
+          sex = rbinom(total_offspring, 1, 0.5),
+          stage = "egg",
+          alive = TRUE,
+          allele1 = ifelse(which_allele_female,
+                         fem_germline$allele1,
+                         fem_germline$allele2),
+          allele2 = ifelse(which_allele_male,
+                         male_germline$allele1,
+                         male_germline$allele2)
+        )
+      
+        # Genetic load: lethal effect
+      
+        if (lethal_effect){
+         homozygous_lethal <- (offspring$allele1 == 1) & (offspring$allele2 == 1)
+          any_homozygous <- rowSums(homozygous_lethal) > 0
+          offspring <- filter(offspring, !any_homozygous)
+        }
+        # Add offspring to main population
+        pop <- bind_rows(pop, offspring)
+      }
     # # Genetic inheritance and Drive conversion
     # 
     #     drive_conversion <- function(parent, prob1, prob2) {
@@ -141,60 +162,8 @@ growth <- function(pop_patches,
     #     
     #     fem_germline <- drive_conversion(fem_germline, conversion_prob, resistance_prob)   # dams with drive converted germ line
     #     male_germline <- drive_conversion(male_germline, conversion_prob, resistance_prob) # sires with drive converted germ line
-      
-      
-        # Genetic inheritance
-        num_loci <- ncol(fem_germline$allele1)
-        stopifnot(num_loci == n_loci)
-        
-        
-        # random selection of allele, with linkage 
-        which_allele_fn <- function(n_offspring, num_loci, loci_cov_matrix){
-          epsilon <- MASS::mvrnorm(n_offspring, rep(0, num_loci), Sigma = loci_cov_matrix)
-          selection_prob <- plogis(epsilon)
-          matrix(rbinom(n_offspring * num_loci, 1, selection_prob) == 1,
-                 nrow = n_offspring,
-                 ncol = num_loci)
-        }
-        
-        which_allele_female <- which_allele_fn(n_offspring, num_loci, loci_cov_matrix) #female gametes
-        which_allele_male <- which_allele_fn(n_offspring, num_loci, loci_cov_matrix) # male gametes
-        
-        #  Determination of offspring features
-        offspring <- tibble(
-          sex = rbinom(n_offspring, 1, 0.5),
-          stage = "egg",
-          alive = TRUE,
-          allele1 = ifelse(which_allele_female,
-                           fem_germline$allele1,
-                           fem_germline$allele2),
-          allele2 = ifelse(which_allele_male,
-                           male_germline$allele1,
-                           male_germline$allele2)
-        )
+  
 
-    
-    # Genetic load: lethal effect
-    
-    if (lethal_effect){
-      homozygous_lethal <- (offspring$allele1 == 1) & (offspring$allele2 == 1)
-      any_homozygous <- rowSums(homozygous_lethal) > 0
-      offspring <- filter(offspring, !any_homozygous)
-    }
-        
-    # Add offspring to main population
- 
-        offspring_list[[length(offspring_list) + 1]] <- offspring
-      }
-  }
-  
-  # Combine all offspring data frames into one final data frame
-  offspring_df <- bind_rows(offspring_list)
-  
-  # add offspring to the main population. 
-  pop <- bind_rows(pop, offspring_df)
-  
-  
     # Temperature-adjusted survival for larval and adult population: NOTE: set 
     #  SD in "temp" to "0" to turn off temperature variation onn survival
     
@@ -341,8 +310,7 @@ simulation <- function(patches,
   stage_distributions <- list()
   for (day in 1:sim_days) {
     #if (day == 9) browser()
-    cat("Day", day, "Completed\n")
-
+    cat("Day", day, "Underway \n")
     # Growth with reproduction
     pop <- growth(pop_patches = pop,
                   bloodmeal_prob, 
