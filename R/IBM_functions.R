@@ -63,7 +63,7 @@ growth <- function(pop_patches,
                    gdd_required,
                    ldt) {
   
-#if (sim_days == 10) browser()
+#if (sim_days == 50) browser()
   updated_pop_patches <- list()
   
   for (i in seq_along(pop_patches)) {
@@ -83,7 +83,7 @@ growth <- function(pop_patches,
       # Bernoulli trial for mating and feeding (1 if mated/bloodfed, 0 if not)
       realised_mated <- rbinom(n = n.fem, 1, prob = (n.male/(beta + n.male)))#  (nrow(male)/(beta + nrow(male)))) is the mating probability which increases as male population increases (North and Godfray; Malar J (2018) 17:140) 
       realised_bloodmeal <- rbinom(n = n.fem, 1, bloodmeal_prob)   
-      gravid <- realised_mated*realised_bloodmeal == 1
+      gravid <- as.integer(realised_mated*realised_bloodmeal == 1)
       
       # effect of load on fecundity: to turn this effect off, set fecundity_effect = 0 in function call
       # If bloodfed, calculate expected offspring for this female
@@ -93,32 +93,16 @@ growth <- function(pop_patches,
       homo_loci <- apply(fem$allele1 + fem$allele2 == 2, 1, sum) # number of homozygous loci for each female
       exp_offspring <- gravid * fecundity * exp(-fecundity_effect * homo_loci)
       
-      # # complete sterility effect  
+      # # complete sterility effect
       # homo_loci <- 1 - (as.integer(apply(fem$allele1 + fem$allele2 == 2, 1, any))) # if any loci is homozygous
-      # exp_offspring <- gravid * fecundity * no_homo_loci)
+      # exp_offspring <- gravid * fecundity * homo_loci
+
       
+    # oviposition based on degree-day accumulation
+ 
+        ##### underway###
       
- # oviposition based on degree-day accumlation
-    # additive effect 
-      # homo_loci <- apply(fem$allele1 + fem$allele2 == 2, 1, sum) 
-      # exp_offspring <- case_when(
-      #   fem$gdd_accumulated >=  30 & parity1 == 0 ~ gravid * fecundity * exp(-fecundity_effect * homo_loci),
-      #   fem$gdd_accumulated >=  70 & parity1 == 1 ~ gravid * fecundity * exp(-fecundity_effect * homo_loci),
-      #   fem$gdd_accumulated >=  120 & parity1 == 1 & parity2 == 1 ~ gravid * fecundity * exp(-fecundity_effect * homo_loci),
-      #   TRUE ~ 0
-      #   )
-      
-    # complete sterility effect  
-        # homo_loci <- 1 - (as.integer(apply(fem$allele1 + fem$allele2 == 2, 1, any))) # if any loci is homozygous
-        # exp_offspring <- case_when(
-        #    fem$gdd_accumulated >=  30 & parity1 == 0 ~ gravid * fecundity * homo_loci,
-        #   fem$gdd_accumulated >=  70 & parity1 == 1 ~ gravid * fecundity * homo_loci,
-        #   fem$gdd_accumulated >=  120 & parity1 == 1 & parity2 == 1 ~ gravid * fecundity * homo_loci,
-        #   TRUE ~ 0
-        # )
-        # 
-      
-      
+    
       # Draw the actual number of offspring from a Poisson distribution
       n_offspring <- rpois(n = n.fem, exp_offspring) 
       

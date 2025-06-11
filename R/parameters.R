@@ -30,10 +30,10 @@ dispersal_frac <- 0.05
 
 # Genetic (load) & drive parameters
 n_loci <- 10
-init_frequency = 0.01                    # initial frequency of deleterious recessives
+init_frequency = 0.1                    # initial frequency of deleterious recessives
 conversion_prob <- 0.95                  # Rate at which the drive allele converts the wild-type allele
 resistance_prob <- 0.5                   # prob resistance development or conversion failure
-fecundity_effect <- 0                    # effect per homozygous deleterious recessive on fecundity. Set to '0' to turn off
+fecundity_effect <- 1                    # effect per homozygous deleterious recessive on fecundity. Set to '0' to turn off
 decay <- 0.5                             
 
 
