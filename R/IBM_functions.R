@@ -15,9 +15,12 @@ ini_pop <- function(patches, n_per_patch, coords, loci, init_frequency) {
     patches_pop[[i]] <- tibble(
       sex = rbinom(n_per_patch[i], 1, 0.5), # Female == 1, random sex
       stage = sample(c("egg", "larva", "pupa", "adult"), n_per_patch[i], replace = TRUE),
-      alive = TRUE,
       allele1 = matrix(rbinom(n = n_per_patch[i] * n_loci, size = 1, prob = init_frequency), ncol = n_loci), # 0 = wild-type, 1 = drive allele
-      allele2 = matrix(rbinom(n = n_per_patch[i] * n_loci, size = 1, prob = init_frequency), ncol = n_loci)
+      allele2 = matrix(rbinom(n = n_per_patch[i] * n_loci, size = 1, prob = init_frequency), ncol = n_loci),
+      gdd_accumulated = 0,
+      parity1 = 0,
+      parity2 = 0,
+      alive = TRUE
     )
     if (length(n_per_patch) != patches) warning("Initial patch population does not equal specified number of patches")
   }
@@ -53,11 +56,14 @@ growth <- function(pop_patches,
                    fecundity_effect,
                    lethal_effect,
                    sim_days,
-                   daily_temp,
+                   t_max,
+                   t_min,
                    sigma,
-                   loci_cov_matrix) {
+                   loci_cov_matrix,
+                   gdd_required,
+                   ldt) {
   
- #if (sim_days == 12) browser()
+#if (sim_days == 10) browser()
   updated_pop_patches <- list()
   
   for (i in seq_along(pop_patches)) {
@@ -68,29 +74,61 @@ growth <- function(pop_patches,
     n.fem <- nrow(fem)
     n.male <- nrow(male)
 
-    offspring_list <- list()
     if (n.fem > 0 && n.male > 0){
       # select a mate for each female
       selected_male_index <- sample(x = n.male, size = n.fem, replace = TRUE)
       selected_male <- male[selected_male_index, ]
       
-      # Bernoulli trial for mating and feeding (1 if mated, 0 if not)
-      realised_mated <- rbinom(n = n.fem, 1, prob = (n.male/(beta + n.male))) #  (nrow(male)/(beta + nrow(male)))) is the mating probability which increases as male population increases (North and Godfray; Malar J (2018) 17:140) 
-      realised_bloodmeal <- rbinom(n = n.fem, 1, bloodmeal_prob)
-        
-      # effect of load on fecundity. to turn this effect off, set fecundity_effect = 0 in function call
+      
+      # Bernoulli trial for mating and feeding (1 if mated/bloodfed, 0 if not)
+      realised_mated <- rbinom(n = n.fem, 1, prob = (n.male/(beta + n.male)))#  (nrow(male)/(beta + nrow(male)))) is the mating probability which increases as male population increases (North and Godfray; Malar J (2018) 17:140) 
+      realised_bloodmeal <- rbinom(n = n.fem, 1, bloodmeal_prob)   
+      gravid <- realised_mated*realised_bloodmeal == 1
+      
+      # effect of load on fecundity: to turn this effect off, set fecundity_effect = 0 in function call
       # If bloodfed, calculate expected offspring for this female
-      # Effect size of genetic load: additive effect from 0 to 1 as the 
-      # number loci homozygous for the lethal gene increases
-      no_homo_loci <- apply((fem$allele1 + fem$allele2 == 2), 1, sum) # number of homozygous loci for each female
-      exp_offspring <- realised_mated*realised_bloodmeal*fecundity * exp(-fecundity_effect * no_homo_loci)
+      # Additive effect as the number of homozygous lethal loci increases fecudity 
+      # decreases exponentially as given below:
+      
+      homo_loci <- apply(fem$allele1 + fem$allele2 == 2, 1, sum) # number of homozygous loci for each female
+      exp_offspring <- gravid * fecundity * exp(-fecundity_effect * homo_loci)
+      
+      # # complete sterility effect  
+      # homo_loci <- 1 - (as.integer(apply(fem$allele1 + fem$allele2 == 2, 1, any))) # if any loci is homozygous
+      # exp_offspring <- gravid * fecundity * no_homo_loci)
+      
+      
+ # oviposition based on degree-day accumlation
+    # additive effect 
+      # homo_loci <- apply(fem$allele1 + fem$allele2 == 2, 1, sum) 
+      # exp_offspring <- case_when(
+      #   fem$gdd_accumulated >=  30 & parity1 == 0 ~ gravid * fecundity * exp(-fecundity_effect * homo_loci),
+      #   fem$gdd_accumulated >=  70 & parity1 == 1 ~ gravid * fecundity * exp(-fecundity_effect * homo_loci),
+      #   fem$gdd_accumulated >=  120 & parity1 == 1 & parity2 == 1 ~ gravid * fecundity * exp(-fecundity_effect * homo_loci),
+      #   TRUE ~ 0
+      #   )
+      
+    # complete sterility effect  
+        # homo_loci <- 1 - (as.integer(apply(fem$allele1 + fem$allele2 == 2, 1, any))) # if any loci is homozygous
+        # exp_offspring <- case_when(
+        #    fem$gdd_accumulated >=  30 & parity1 == 0 ~ gravid * fecundity * homo_loci,
+        #   fem$gdd_accumulated >=  70 & parity1 == 1 ~ gravid * fecundity * homo_loci,
+        #   fem$gdd_accumulated >=  120 & parity1 == 1 & parity2 == 1 ~ gravid * fecundity * homo_loci,
+        #   TRUE ~ 0
+        # )
+        # 
+      
+      
       # Draw the actual number of offspring from a Poisson distribution
-      n_offspring <- rpois(n = n.fem, exp_offspring)
-        
-      } else {
+      n_offspring <- rpois(n = n.fem, exp_offspring) 
+      
+      
+      }  else {
         # If not, set offspring count to 0
         n_offspring <- rep(0, n.fem)
       }
+  
+      
       total_offspring <- sum(n_offspring)
       
       if (total_offspring > 0){
@@ -118,25 +156,31 @@ growth <- function(pop_patches,
         offspring <- tibble(
           sex = rbinom(total_offspring, 1, 0.5),
           stage = "egg",
-          alive = TRUE,
           allele1 = ifelse(which_allele_female,
                          fem_germline$allele1,
                          fem_germline$allele2),
           allele2 = ifelse(which_allele_male,
                          male_germline$allele1,
-                         male_germline$allele2)
+                         male_germline$allele2),
+          gdd_accumulated = 0,
+          parity1 = 0,
+          parity2 = 0,
+          alive = TRUE
         )
       
-        # Genetic load: lethal effect
-      
-        if (lethal_effect){
-         homozygous_lethal <- (offspring$allele1 == 1) & (offspring$allele2 == 1)
-          any_homozygous <- rowSums(homozygous_lethal) > 0
-          offspring <- filter(offspring, !any_homozygous)
-        }
         # Add offspring to main population
         pop <- bind_rows(pop, offspring)
       }
+      
+      # Genetic load: lethal effect
+      
+      if (lethal_effect){
+        homozygous_lethal <- (pop$allele1 == 1) & (pop$allele2 == 1)
+        any_homozygous <- rowSums(homozygous_lethal) > 0
+        pop <- filter(pop, !any_homozygous)
+      }
+      
+      
     # # Genetic inheritance and Drive conversion
     # 
     #     drive_conversion <- function(parent, prob1, prob2) {
@@ -163,47 +207,78 @@ growth <- function(pop_patches,
     #     fem_germline <- drive_conversion(fem_germline, conversion_prob, resistance_prob)   # dams with drive converted germ line
     #     male_germline <- drive_conversion(male_germline, conversion_prob, resistance_prob) # sires with drive converted germ line
   
+      
+    
+    # Temperature variable  
+    
+      max_temp <- t_max[i]
+      min_temp <- t_min[i]
+      #daily_temp <- (max_temp+min_temp)/2
+      
 
     # Temperature-adjusted survival for larval and adult population: NOTE: set 
     #  SD in "temp" to "0" to turn off temperature variation onn survival
     
-    temp_effect <- exp(-((daily_temp - 25)^2) / (2 * sigma^2)) # Gaussian process (after Beck-Johnson et al., 2013). 
-    temp_adjusted_survival <- daily_survival[c("adult","larva")] * temp_effect
+    # temp_effect <- exp(-((daily_temp - 25)^2) / (2 * sigma^2)) # Gaussian process (modified from Beck-Johnson et al., 2013). 
+    # temp_adjusted_survival <- daily_survival[c("adult","larva")] * temp_effect
     
     
     # Density-dependent survival for larval stage
     larva_count <- sum(pop$stage == "larva")
     density_dependence <- 1/(1 + (alpha*larva_count))
-    density_dependent_survival <- temp_adjusted_survival["larva"] * density_dependence
+    #density_dependent_survival <- temp_adjusted_survival["larva"] * density_dependence
+    density_dependent_survival <- daily_survival["larva"] * density_dependence
     
-
     pop <- pop |> mutate(
         alive = case_when(
           stage == "egg" ~ rbinom(n(), 1, daily_survival["egg"]),
           stage == "larva" ~ rbinom(n(), 1, density_dependent_survival),
           stage == "pupa" ~ rbinom(n(), 1, daily_survival["pupa"]),
-          stage == "adult" ~ rbinom(n(), 1, temp_adjusted_survival["adult"]),
+          stage == "adult" ~ rbinom(n(), 1, daily_survival["adult"]),
         ),
         alive = alive == 1
      )
     
-    # stage transition probability per time step 
-    pop <- pop |>
+    # function to calculate growth degree-days
+    gdd_cal <- function(daily_max_temp, daily_min_temp, T_base) {
+      pmax(0, (daily_max_temp+daily_min_temp)/2 - T_base)
+    }
+  
+    daily_gdd_accumulated <- gdd_cal (max_temp, min_temp, ldt)
+    pop <- pop |> mutate(gdd_accumulated = gdd_accumulated + daily_gdd_accumulated)    
+    
+    
+# stage transition probability per time step based on degree day accumlated
+
+ pop <- pop |>
+      mutate(
+        transition_egg_larva  = stage == "egg"  & gdd_accumulated >= gdd_required["egg_larva"]  & rbinom(n(), 1, daily_transition["egg_larva"]) == 1,
+        transition_larva_pupa = stage == "larva" & gdd_accumulated >= gdd_required["larva_pupa"] & rbinom(n(), 1, daily_transition["larva_pupa"]) == 1,
+        transition_pupa_adult = stage == "pupa"  & gdd_accumulated >= gdd_required["pupa_adult"] & rbinom(n(), 1, daily_transition["pupa_adult"]) == 1
+      ) |>
       mutate(
         stage = case_when(
-          stage == "egg" & rbinom(n(), 1, daily_transition["egg_larva"]) == 1 ~ "larva",
-          stage == "larva" & rbinom(n(), 1, daily_transition["larva_pupa"]) == 1 ~ "pupa",
-          stage == "pupa" & rbinom(n(), 1, daily_transition["pupa_adult"]) == 1 ~ "adult",
+          transition_egg_larva  ~ "larva",
+          transition_larva_pupa ~ "pupa",
+          transition_pupa_adult ~ "adult",
           TRUE ~ stage
+        ),
+        gdd_accumulated = case_when(
+          transition_egg_larva  ~ 0,
+          transition_larva_pupa ~ 0,
+          transition_pupa_adult ~ 0,
+          TRUE ~ gdd_accumulated
         )
-      )
-    
+      ) |>
+      select(-starts_with("transition_"))  
+
     pop <- filter(pop, alive)
     
     updated_pop_patches[[i]] <- pop
   }
   return(updated_pop_patches)
-}
+ }
+
 
 
 
@@ -301,8 +376,11 @@ simulation <- function(patches,
                        lethal_effect,
                        sim_days,
                        dispersal_matrix,
-                       daily_temp,
-                       sigma) {
+                       t_max,
+                       t_min,
+                       sigma,
+                       gdd_required,
+                       ldt) {
   pop <- ini_pop(patches, n_per_patch, coords, n_loci, init_frequency)
   l.cov.mat <- place_loci_mat(n_loci, genome.size = 1, var = 1, decay)
   
@@ -326,9 +404,12 @@ simulation <- function(patches,
                   fecundity_effect,
                   lethal_effect,
                   sim_days = day,
-                  daily_temp = temp[day],
+                  t_max,
+                  t_min,
                   sigma,
-                  loci_cov_matrix = l.cov.mat)
+                  loci_cov_matrix = l.cov.mat,
+                  gdd_required,
+                  ldt)
     
     # Dispersal
     pop <- dispersal(pop, dispersal_matrix)

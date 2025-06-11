@@ -1,5 +1,6 @@
 library(tidyverse)
 
+
 # TO DO!
 # introduce a functional exponential dispersal model. DONE!
 # implement density-dependence survival at the larval stage. DONE!
@@ -12,7 +13,7 @@ library(tidyverse)
 #               PARAMETERS                #
 ###########################################
 
-set.seed(20250521)
+set.seed(20250606)
 
 # Source functions and parameters 
 source("R/parameters.R")
@@ -41,9 +42,12 @@ sim <- simulation (patches = patches,
                    beta = beta,
                    decay = decay,
                    fecundity_effect = fecundity_effect,
-                   lethal_effect = TRUE,
+                   lethal_effect = FALSE,
                    sim_days = sim_days,
                    dispersal_matrix = dispersal_matrix,
-                   daily_temp = temp[day],
-                   sigma)
+                   t_max,
+                   t_min,
+                   sigma,
+                   gdd_required = gdd_required,
+                   ldt = ldt)
  
