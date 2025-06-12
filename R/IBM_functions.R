@@ -41,6 +41,53 @@ place_loci_mat <- function(loci, genome.size = 1, var = 1, decay){
 }
 
 
+
+# Degree day calculation 
+
+erfinv <- function (x) qnorm((1 + x)/2)/sqrt(2)
+
+sigma_etimate <- function(x, mu, p) {
+  (x - mu)/(sqrt(2) * erfinv(2*p-1))
+}
+
+# Transitioning using degree-days (dd): degree-days, percentage/probability of 
+# transitioning (data from Abbasi et al., 2023)   
+
+# Eggs transition
+one_per_egg <- sigma_etimate(30.5, 44.5, 0.01)
+ten_per_egg <- sigma_etimate(33.7, 44.5, 0.1)
+eighty_per_egg <- sigma_etimate(59.6, 44.5, 0.8)
+mean_sigma_egg <- mean(c(one_per_egg, ten_per_egg, eighty_per_egg))
+
+#Larva transition
+one_per_larva <- sigma_etimate(26.5, 46.5, 0.01)
+ten_per_larva <- sigma_etimate(30.7, 46.5, 0.1)
+eighty_per_larva <- sigma_etimate(55.6, 46.5, 0.8)
+mean_sigma_larva <- mean(c(one_per_larva, ten_per_larva, eighty_per_larva))
+
+#Pupa transition
+one_per_pupa <- sigma_etimate(17.7, 29.7, 0.01)
+ten_per_pupa <- sigma_etimate(22.3, 29.7, 0.1)
+eighty_per_pupa <- sigma_etimate(40.4, 29.7, 0.8)
+mean_sigma_pupa <- mean(c(one_per_pupa, ten_per_pupa, eighty_per_pupa))
+
+
+mu <- c(egg = 44.5, larva = 46.5, pupa = 29.7)
+sigma_dd <- c(egg = mean_sigma_egg, 
+              larva = mean_sigma_larva, 
+              pupa = mean_sigma_pupa)
+
+prob_trans <- function(dd, mu, sigma) {
+ pnorm(dd, mu, sigma)
+}
+
+# function to calculate growth degree-days 
+# (Abbasi et al., Environmental Entomology, 2023, Vol. 52, No. 6)
+
+cal_dd <- function(daily_max_temp, daily_min_temp, T_base) {
+  max(0, (daily_max_temp+daily_min_temp)/2 - T_base)
+}
+
 #### Growth, reproduction and drive inheritance ####
 growth <- function(pop_patches, 
                    bloodmeal_prob, 
@@ -55,6 +102,7 @@ growth <- function(pop_patches,
                    decay,
                    fecundity_effect,
                    lethal_effect,
+                   complete_sterile,
                    sim_days,
                    t_max,
                    t_min,
@@ -94,14 +142,29 @@ growth <- function(pop_patches,
       exp_offspring <- gravid * fecundity * exp(-fecundity_effect * homo_loci)
       
       # # complete sterility effect
-      # homo_loci <- 1 - (as.integer(apply(fem$allele1 + fem$allele2 == 2, 1, any))) # if any loci is homozygous
-      # exp_offspring <- gravid * fecundity * homo_loci
-
-      
-    # oviposition based on degree-day accumulation
- 
-        ##### underway###
-      
+      if (complete_sterile) {
+      homo_loci <- 1 - (as.integer(apply(fem$allele1 + fem$allele2 == 2, 1, any))) # if any loci is homozygous
+      exp_offspring <- gravid * fecundity * homo_loci
+      }
+    
+      # # oviposition using degree-day accumulation (in progress)
+      # 
+      # exp_offspring <- numeric(n.fem)
+      # 
+      # # For each female, only one condition can be met daily
+      # condition1 <- fem$gdd_accumulated >= 30 & fem$parity1 == 0
+      # condition2 <- fem$gdd_accumulated >= 70 & fem$parity1 == 1 & fem$parity2 == 0
+      # condition3 <- fem$gdd_accumulated >= 120 & fem$parity1 == 1 & fem$parity2 == 1
+      # 
+      # # Apply oviposition only for the first satisfied condition
+      # exp_offspring[condition1] <- gravid[condition1] * fecundity * exp(-fecundity_effect * homo_loci[condition1])
+      # exp_offspring[condition2] <- gravid[condition2] * fecundity * exp(-fecundity_effect * homo_loci[condition2])
+      # exp_offspring[condition3] <- gravid[condition3] * fecundity * exp(-fecundity_effect * homo_loci[condition3])
+      # 
+      # # Update parity for females that laid eggs
+      # fem$parity1[condition1] <- 1
+      # fem$parity2[condition2] <- 1
+      # 
     
       # Draw the actual number of offspring from a Poisson distribution
       n_offspring <- rpois(n = n.fem, exp_offspring) 
@@ -193,7 +256,7 @@ growth <- function(pop_patches,
   
       
     
-    # Temperature variable  
+    # daily min and max temperature  
     
       max_temp <- t_max[i]
       min_temp <- t_min[i]
@@ -223,38 +286,32 @@ growth <- function(pop_patches,
         alive = alive == 1
      )
     
-    # function to calculate growth degree-days
-    gdd_cal <- function(daily_max_temp, daily_min_temp, T_base) {
-      pmax(0, (daily_max_temp+daily_min_temp)/2 - T_base)
-    }
-  
-    daily_gdd_accumulated <- gdd_cal (max_temp, min_temp, ldt)
+ 
+    daily_gdd_accumulated <- cal_dd (max_temp, min_temp, ldt)
     pop <- pop |> mutate(gdd_accumulated = gdd_accumulated + daily_gdd_accumulated)    
     
     
-# stage transition probability per time step based on degree day accumlated
-
- pop <- pop |>
-      mutate(
-        transition_egg_larva  = stage == "egg"  & gdd_accumulated >= gdd_required["egg_larva"]  & rbinom(n(), 1, daily_transition["egg_larva"]) == 1,
-        transition_larva_pupa = stage == "larva" & gdd_accumulated >= gdd_required["larva_pupa"] & rbinom(n(), 1, daily_transition["larva_pupa"]) == 1,
-        transition_pupa_adult = stage == "pupa"  & gdd_accumulated >= gdd_required["pupa_adult"] & rbinom(n(), 1, daily_transition["pupa_adult"]) == 1
-      ) |>
-      mutate(
-        stage = case_when(
-          transition_egg_larva  ~ "larva",
-          transition_larva_pupa ~ "pupa",
-          transition_pupa_adult ~ "adult",
-          TRUE ~ stage
-        ),
-        gdd_accumulated = case_when(
-          transition_egg_larva  ~ 0,
-          transition_larva_pupa ~ 0,
-          transition_pupa_adult ~ 0,
-          TRUE ~ gdd_accumulated
-        )
-      ) |>
-      select(-starts_with("transition_"))  
+   pop <- pop |>
+     mutate(
+       transition_egg_larva  = stage == "egg"  & rbinom(n(), 1, prob_trans(gdd_accumulated, mu["egg"], sigma_dd["egg"])) == 1,
+       transition_larva_pupa = stage == "larva" & rbinom(n(), 1, prob_trans(gdd_accumulated, mu["larva"], sigma_dd["larva"])) == 1,
+       transition_pupa_adult = stage == "pupa"  & rbinom(n(), 1, prob_trans(gdd_accumulated, mu["pupa"], sigma_dd["pupa"])) == 1,
+     ) |>
+     mutate(
+       stage = case_when(
+         transition_egg_larva  ~ "larva",
+         transition_larva_pupa ~ "pupa",
+         transition_pupa_adult ~ "adult",
+         TRUE ~ stage
+       ),
+       gdd_accumulated = case_when(
+         transition_egg_larva  ~ 0,
+         transition_larva_pupa ~ 0,
+         transition_pupa_adult ~ 0,
+         TRUE ~ gdd_accumulated
+       )
+     ) |>
+     select(-starts_with("transition_"))
 
     pop <- filter(pop, alive)
     
@@ -358,6 +415,7 @@ simulation <- function(patches,
                        decay,
                        fecundity_effect,
                        lethal_effect,
+                       complete_sterile,
                        sim_days,
                        dispersal_matrix,
                        t_max,
@@ -371,7 +429,7 @@ simulation <- function(patches,
   patch_sizes <- list()
   stage_distributions <- list()
   for (day in 1:sim_days) {
-    #if (day == 9) browser()
+    if (day == 45) browser()
     cat("Day", day, "Underway \n")
     # Growth with reproduction
     pop <- growth(pop_patches = pop,
@@ -387,6 +445,7 @@ simulation <- function(patches,
                   decay,
                   fecundity_effect,
                   lethal_effect,
+                  complete_sterile,
                   sim_days = day,
                   t_max,
                   t_min,
