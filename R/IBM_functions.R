@@ -29,23 +29,20 @@ ini_pop <- function(patches, n_per_patch, coords, loci, init_frequency) {
 }
 
 
-
 # Loci selection matrix: function to place loci at random on the genome (of size = 1)
 # also takes exponential decay and variance to produce variance-covariance matrix
 
 place_loci_mat <- function(loci, genome.size = 1, var = 1, decay){
-  loci_positions <- sort(runif(loci, max = genome.size))
+  loci_positions <- (runif(loci, max = genome.size))
   loci_dist_matrix <- as.matrix(dist(loci_positions))^2 
   loci_cov_matrix <- var*exp(-decay*loci_dist_matrix)
   return(loci_cov_matrix)
 }
 
 
-
-# Degree day calculation 
+# Degree day calculation (Abbasi et al., Environmental Entomology, 2023, Vol. 52, No. 6)
 
 erfinv <- function (x) qnorm((1 + x)/2)/sqrt(2)
-
 sigma_etimate <- function(x, mu, p) {
   (x - mu)/(sqrt(2) * erfinv(2*p-1))
 }
@@ -60,9 +57,9 @@ eighty_per_egg <- sigma_etimate(59.6, 44.5, 0.8)
 mean_sigma_egg <- mean(c(one_per_egg, ten_per_egg, eighty_per_egg))
 
 #Larva transition
-one_per_larva <- sigma_etimate(26.5, 46.5, 0.01)
-ten_per_larva <- sigma_etimate(30.7, 46.5, 0.1)
-eighty_per_larva <- sigma_etimate(55.6, 46.5, 0.8)
+one_per_larva <- sigma_etimate(93.9, 145.5, 0.01)
+ten_per_larva <- sigma_etimate(104.1, 145.5, 0.1)
+eighty_per_larva <- sigma_etimate(182.3, 145.5, 0.8)
 mean_sigma_larva <- mean(c(one_per_larva, ten_per_larva, eighty_per_larva))
 
 #Pupa transition
@@ -72,7 +69,7 @@ eighty_per_pupa <- sigma_etimate(40.4, 29.7, 0.8)
 mean_sigma_pupa <- mean(c(one_per_pupa, ten_per_pupa, eighty_per_pupa))
 
 
-mu <- c(egg = 44.5, larva = 46.5, pupa = 29.7)
+mu <- c(egg = 44.5, larva = 145.5, pupa = 29.7)
 sigma_dd <- c(egg = mean_sigma_egg, 
               larva = mean_sigma_larva, 
               pupa = mean_sigma_pupa)
@@ -82,11 +79,39 @@ prob_trans <- function(dd, mu, sigma) {
 }
 
 # function to calculate growth degree-days 
-# (Abbasi et al., Environmental Entomology, 2023, Vol. 52, No. 6)
 
 cal_dd <- function(daily_max_temp, daily_min_temp, T_base) {
   max(0, (daily_max_temp+daily_min_temp)/2 - T_base)
 }
+
+
+
+# Aquatic stage survival based on temperature and population density estimated 
+# using daily mortality hazard, and developmental rate (see Golding et al., unpublished data)
+
+ensure_positive <- function(x) {
+  x * as.numeric(x > 0)
+}
+
+# reload lifehistory functions from saved objects
+rehydrate_lifehistory_function <- function(path_to_object) {
+  object <- readRDS(path_to_object)
+  do.call(`function`,
+          list(object$arguments,
+               body(object$dummy_function)))
+}
+
+path <- "C:/Users/22181916/Documents/Curtin-PhD/R_and_IBM/An-stephensi-IBM_Proj/R/das_temp_dens_As.RDS"
+das_temp_dens_As <- rehydrate_lifehistory_function(path)
+
+
+
+
+# Adult stage survival based on temperature and population density estimated 
+# using daily mortality hazard, and developmental rate (see Golding et al., unpublished data)
+ 
+ 
+ 
 
 #### Growth, reproduction and drive inheritance ####
 growth <- function(pop_patches, 
@@ -111,7 +136,7 @@ growth <- function(pop_patches,
                    gdd_required,
                    ldt) {
   
-#if (sim_days == 50) browser()
+#if (sim_days == 25) browser()
   updated_pop_patches <- list()
   
   for (i in seq_along(pop_patches)) {
@@ -129,7 +154,7 @@ growth <- function(pop_patches,
       
       
       # Bernoulli trial for mating and feeding (1 if mated/bloodfed, 0 if not)
-      realised_mated <- rbinom(n = n.fem, 1, prob = (n.male/(beta + n.male)))#  (nrow(male)/(beta + nrow(male)))) is the mating probability which increases as male population increases (North and Godfray; Malar J (2018) 17:140) 
+      realised_mated <- rbinom(n = n.fem, 1, prob = (n.male/(beta + n.male))) # (nrow(male)/(beta + nrow(male)))) is the mating probability which increases as male population increases (North and Godfray; Malar J (2018) 17:140) 
       realised_bloodmeal <- rbinom(n = n.fem, 1, bloodmeal_prob)   
       gravid <- as.integer(realised_mated*realised_bloodmeal == 1)
       
@@ -187,7 +212,7 @@ growth <- function(pop_patches,
         num_loci <- ncol(fem_germline$allele1)
         stopifnot(num_loci == n_loci)
       
-        # random selection of allele, with linkage 
+        # # random selection of allele, with linkage 
         which_allele_fn <- function(n_offspring, num_loci, loci_cov_matrix){
           epsilon <- MASS::mvrnorm(n_offspring, rep(0, num_loci), Sigma = loci_cov_matrix)
           selection_prob <- plogis(epsilon)
@@ -195,8 +220,10 @@ growth <- function(pop_patches,
                nrow = n_offspring,
                ncol = num_loci)
         }
+
       
-        which_allele_female <- which_allele_fn(total_offspring, num_loci, loci_cov_matrix) #female gametes
+      
+        which_allele_female <- which_allele_fn(total_offspring, num_loci, loci_cov_matrix) # female gametes
         which_allele_male <- which_allele_fn(total_offspring, num_loci, loci_cov_matrix) # male gametes
       
         #  Determination of offspring features
@@ -260,35 +287,29 @@ growth <- function(pop_patches,
     
       max_temp <- t_max[i]
       min_temp <- t_min[i]
-      #daily_temp <- (max_temp+min_temp)/2
+      daily_temp <- (max_temp+min_temp)/2
       
 
-    # Temperature-adjusted survival for larval and adult population: NOTE: set 
-    #  SD in "temp" to "0" to turn off temperature variation onn survival
+    # Density-dependent survival for aqauatic stages
+    count <- sum((pop$stage == "egg") + (pop$stage == "larva") + (pop$stage == "pupa"))
+    aquatic_stage_density <- count/surface_area
     
-    # temp_effect <- exp(-((daily_temp - 25)^2) / (2 * sigma^2)) # Gaussian process (modified from Beck-Johnson et al., 2013). 
-    # temp_adjusted_survival <- daily_survival[c("adult","larva")] * temp_effect
+
+   egg_gdd_accumulated <- cal_dd (max_temp, min_temp, ldt["egg"])
+   larva_gdd_accumulated <- cal_dd (max_temp, min_temp, ldt["larva"])
+   pupa_gdd_accumulated <- cal_dd (max_temp, min_temp, ldt["pupa"])
+   adult_gdd_accumulated <- cal_dd (max_temp, min_temp, ldt["adult"])
+   
     
-    
-    # Density-dependent survival for larval stage
-    larva_count <- sum(pop$stage == "larva")
-    density_dependence <- 1/(1 + (alpha*larva_count))
-    #density_dependent_survival <- temp_adjusted_survival["larva"] * density_dependence
-    density_dependent_survival <- daily_survival["larva"] * density_dependence
-    
-    pop <- pop |> mutate(
-        alive = case_when(
-          stage == "egg" ~ rbinom(n(), 1, daily_survival["egg"]),
-          stage == "larva" ~ rbinom(n(), 1, density_dependent_survival),
-          stage == "pupa" ~ rbinom(n(), 1, daily_survival["pupa"]),
-          stage == "adult" ~ rbinom(n(), 1, daily_survival["adult"]),
-        ),
-        alive = alive == 1
-     )
-    
- 
-    daily_gdd_accumulated <- cal_dd (max_temp, min_temp, ldt)
-    pop <- pop |> mutate(gdd_accumulated = gdd_accumulated + daily_gdd_accumulated)    
+   pop <- pop |>
+     mutate(
+       gdd_accumulated = case_when(
+         stage == "egg"   ~ gdd_accumulated + egg_gdd_accumulated,
+         stage == "larva" ~ gdd_accumulated + larva_gdd_accumulated,
+         stage == "pupa"  ~ gdd_accumulated + pupa_gdd_accumulated,
+         stage == "adult"  ~ gdd_accumulated + adult_gdd_accumulated
+       )
+     ) 
     
     
    pop <- pop |>
@@ -312,6 +333,22 @@ growth <- function(pop_patches,
        )
      ) |>
      select(-starts_with("transition_"))
+   
+   
+   #das_temp_dens_As(30, 2)
+   
+   #Density dependent survival adjusted to temperature (for aquatic stage) and humidty (for adult stage)
+   
+   pop <- pop |> mutate(
+     alive = case_when(
+       stage == "egg" ~ rbinom(n(), 1, das_temp_dens_As(daily_temp, aquatic_stage_density)),
+       stage == "larva" ~ rbinom(n(), 1, das_temp_dens_As(daily_temp, aquatic_stage_density)),
+       stage == "pupa" ~ rbinom(n(), 1, das_temp_dens_As(daily_temp, aquatic_stage_density)),
+       stage == "adult" ~ rbinom(n(), 1, daily_survival["adult"]),
+     ),
+     alive = alive == 1
+   )
+   
 
     pop <- filter(pop, alive)
     
@@ -427,9 +464,12 @@ simulation <- function(patches,
   l.cov.mat <- place_loci_mat(n_loci, genome.size = 1, var = 1, decay)
   
   patch_sizes <- list()
-  stage_distributions <- list()
+  allele_frequency <- list()
+  #spread_rate <- list()
+  
+  
   for (day in 1:sim_days) {
-    if (day == 45) browser()
+    #if (day == 45) browser()
     cat("Day", day, "Underway \n")
     # Growth with reproduction
     pop <- growth(pop_patches = pop,
@@ -458,19 +498,53 @@ simulation <- function(patches,
     pop <- dispersal(pop, dispersal_matrix)
     
     # Track daily population sizes per patch
-    patch_sizes[[day]] <- sapply(pop, nrow)  
+  
+    patch_sizes[[day]] <- do.call(rbind, lapply(seq_along(pop), function(patch_id) {
+      data.frame(
+        day = day,
+        patch = patch_id,
+        pop_size = nrow(pop[[patch_id]])
+      )
+    }))
+    patch_sizes_df <- do.call(rbind, patch_sizes)
     
-    # Track stage distribution per patch
-    stage_distributions[[day]] <- lapply(pop, function(patch_pop) {
-      table(patch_pop$stage)  
-    })
+    
+    # Track daily allele frequency per patch
+
+    allele_frequency[[day]] <- do.call(rbind, lapply(seq_along(pop), function(patch_id) {
+      patch_pop <- pop[[patch_id]]
+      if (nrow(patch_pop) > 0) {
+        deleterious <- sum(patch_pop$allele1 == 1) + sum(patch_pop$allele2 == 1)
+        total <- 2 * nrow(patch_pop) * ncol(patch_pop$allele1)
+        wild_type <- total - deleterious
+        freq <- deleterious / total
+      } else {
+        deleterious <- 0
+        total <- 0
+        wild_type <- 0
+        freq <- 0
+      }
+      data.frame(
+        patch = patch_id,
+        wild = wild_type,
+        lethal = deleterious,
+        total = total,
+        freq = freq,
+        day = day
+      )
+    }
+    ))
+    allele_frequency_df <- do.call(rbind, allele_frequency)
   }
+  
+  # track spread or invasion rate
   
   # Return the collected data
   list(
-    patch_sizes = patch_sizes,
-    stage_distributions = stage_distributions,
-    final_pop = pop  
+    patch_sizes = patch_sizes_df,
+    allele_frequency = allele_frequency_df,
+    # spread_rate <-
+    final_pop = pop
   )
 }
 
