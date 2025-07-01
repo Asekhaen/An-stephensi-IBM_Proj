@@ -30,7 +30,7 @@ n_loci <- 5
 init_frequency = 0.2                    # initial frequency of deleterious recessives
 conversion_prob <- 0.95                  # Rate at which the drive allele converts the wild-type allele
 resistance_prob <- 0.5                   # prob resistance development or conversion failure
-fecundity_effect <- 0.2             # effect per homozygous deleterious recessive on fecundity. Set to '0' to turn off
+fecundity_effect <- 0             # effect per homozygous deleterious recessive on fecundity. Set to '0' to turn off
 decay <- 0.5                             
 
 
@@ -49,6 +49,11 @@ t_max  <-  matrix(rnorm(patches * sim_days,
 t_min <-  matrix(rnorm(patches * sim_days, 
                        mean = 20, sd = 5), 
                  nrow = sim_days, ncol = patches)
+
+humidty <- matrix(rtruncnorm(patches * sim_days, a = 0, b = 100,
+                        mean = 80, sd = 10), 
+                  nrow = sim_days, ncol = patches)
+
 sigma <- 8                              # Decay parameter for temperature effect on survival
 alpha <- 0.0001                         # a coefficient that controls the strength of density dependence 
 surface_area <- 10000                   # size of the habitat*

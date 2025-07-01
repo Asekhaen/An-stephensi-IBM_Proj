@@ -1,5 +1,6 @@
 library(tidyverse)
 library(purrr)
+library(truncnorm)
 
 
 # TO DO!
@@ -43,7 +44,7 @@ sim <- simulation (patches = patches,
                    beta = beta,
                    decay = decay,
                    fecundity_effect = fecundity_effect,
-                   lethal_effect = FALSE,
+                   lethal_effect = TRUE,
                    complete_sterile = FALSE,
                    sim_days = sim_days,
                    dispersal_matrix = dispersal_matrix,

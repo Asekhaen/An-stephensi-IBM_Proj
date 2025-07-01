@@ -86,8 +86,9 @@ cal_dd <- function(daily_max_temp, daily_min_temp, T_base) {
 
 
 
-# Aquatic stage survival based on temperature and population density estimated 
-# using daily mortality hazard, and developmental rate (see Golding et al., unpublished data)
+# estimated survival based on temperature and population density (aquatic stage),  
+# and temperature and humidity (adult stage) using daily mortality hazard, and 
+# developmental rate (see Golding et al., unpublished data)
 
 ensure_positive <- function(x) {
   x * as.numeric(x > 0)
@@ -101,17 +102,15 @@ rehydrate_lifehistory_function <- function(path_to_object) {
                body(object$dummy_function)))
 }
 
-path <- "C:/Users/22181916/Documents/Curtin-PhD/R_and_IBM/An-stephensi-IBM_Proj/R/das_temp_dens_As.RDS"
-das_temp_dens_As <- rehydrate_lifehistory_function(path)
+path_aquatic <- "C:/Users/22181916/Documents/Curtin-PhD/R_and_IBM/An-stephensi-IBM_Proj/R/das_temp_dens_As.RDS"
+das_temp_dens_As <- rehydrate_lifehistory_function(path_aquatic)
+
+
+path_adult <- "C:/Users/22181916/Documents/Curtin-PhD/R_and_IBM/An-stephensi-IBM_Proj/R/ds_temp_humid.RDS"
+ds_temp_humid_As <- rehydrate_lifehistory_function(path_adult)
 
 
 
-
-# Adult stage survival based on temperature and population density estimated 
-# using daily mortality hazard, and developmental rate (see Golding et al., unpublished data)
- 
- 
- 
 
 #### Growth, reproduction and drive inheritance ####
 growth <- function(pop_patches, 
@@ -288,6 +287,7 @@ growth <- function(pop_patches,
       max_temp <- t_max[i]
       min_temp <- t_min[i]
       daily_temp <- (max_temp+min_temp)/2
+      daily_humidty <- humidty[i]
       
 
     # Density-dependent survival for aqauatic stages
@@ -344,7 +344,7 @@ growth <- function(pop_patches,
        stage == "egg" ~ rbinom(n(), 1, das_temp_dens_As(daily_temp, aquatic_stage_density)),
        stage == "larva" ~ rbinom(n(), 1, das_temp_dens_As(daily_temp, aquatic_stage_density)),
        stage == "pupa" ~ rbinom(n(), 1, das_temp_dens_As(daily_temp, aquatic_stage_density)),
-       stage == "adult" ~ rbinom(n(), 1, daily_survival["adult"]),
+       stage == "adult" ~ rbinom(n(), 1, ds_temp_humid_As(daily_temp, daily_humidty, species = "An. stephensi")),
      ),
      alive = alive == 1
    )
