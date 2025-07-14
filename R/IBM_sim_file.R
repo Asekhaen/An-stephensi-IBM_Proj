@@ -15,11 +15,13 @@ library(truncnorm)
 #               PARAMETERS                #
 ###########################################
 
-set.seed(20250611)
+set.seed(20250711)
 
 # Source functions and parameters 
 source("R/parameters.R")
 source("R/IBM_functions.R")
+#source("R/IBM_functions_gdd.R")
+
 
 plot(coords, cex = 4)
 text(coords, labels = 1:patches)
@@ -44,14 +46,18 @@ sim <- simulation (patches = patches,
                    beta = beta,
                    decay = decay,
                    fecundity_effect = fecundity_effect,
-                   lethal_effect = TRUE,
+                   gdd_required = gdd_required,
+                   lethal_effect = FALSE,
                    complete_sterile = FALSE,
                    sim_days = sim_days,
                    dispersal_matrix = dispersal_matrix,
                    t_max,
                    t_min,
                    sigma,
-                   ldt = ldt)
+                   surface_area = surface_area,
+                   ldt = ldt,
+                   mu = mu,
+                   sigma_dd = sigma_dd)
  
 
 
@@ -96,5 +102,9 @@ sim <- simulation (patches = patches,
 #                                       gdd_required = gdd_required,
 #                                       ldt = ldt)
 #                                   }))
+
+
+
+
 
 
