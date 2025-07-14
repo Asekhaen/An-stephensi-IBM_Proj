@@ -14,7 +14,7 @@ daily_survival <- c(egg = 0.8,            # daily survival prob
 
 fecundity <- 100                           # Number of offspring per day per female mosquito
 beta <- 100                                # the adult male population size at which the daily probability of mating is 0.5.
-sim_days <- 10                           # Number of simulation in days
+sim_days <-20                           # Number of simulation in days
 bloodmeal_prob <- 0.40                    # Probability that a female find a blood meal
 gdd_required <- 30
 
@@ -51,7 +51,7 @@ t_min <-  matrix(rnorm(patches * sim_days,
                        mean = 20, sd = 5), 
                  nrow = sim_days, ncol = patches)
 
-humidty <- matrix(rtruncnorm(patches * sim_days, a = 0, b = 100,
+humidity <- matrix(rtruncnorm(patches * sim_days, a = 0, b = 100,
                         mean = 80, sd = 10), 
                   nrow = sim_days, ncol = patches)
 

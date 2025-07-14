@@ -200,7 +200,7 @@ growth <- function(pop_patches,
                    ldt,
                    mu,
                    sigma_dd) {
-#if (sim_days == 25) browser()
+# if (sim_days == 9) browser()
   updated_pop_patches <- list()
   
   for (i in seq_along(pop_patches)) {
@@ -252,8 +252,8 @@ growth <- function(pop_patches,
       # exp_offspring <- numeric(n.fem)
       
       cond1 <- as.numeric(fem$next_oviposition >= delay & fem$parity1 == 0 & fem$gravid == 1)
-      cond2 <- as.numeric(fem$next_oviposition >= gdd_required & fem$parity1 == 1 & fem$parity2 == 0 & fem$gravid == 1)
-      cond3 <- as.numeric(fem$next_oviposition >= gdd_required & fem$parity2 == 1 & fem$parity3 == 0 & fem$gravid == 1)
+      cond2 <- as.numeric(fem$next_oviposition >= delay & fem$parity1 == 1 & fem$parity2 == 0 & fem$gravid == 1)
+      cond3 <- as.numeric(fem$next_oviposition >= delay & fem$parity2 == 1 & fem$parity3 == 0 & fem$gravid == 1)
       
       exp_offspring1 <- cond1 * fem$gravid * batch_sizes * exp(-fecundity_effect * homo_loci)
       fem$parity1[cond1 == 1] <- 1
@@ -291,7 +291,7 @@ growth <- function(pop_patches,
     
       if (total_offspring > 0){
       # Replicate the parents features `n_offspring` times for each offspring, collect only genetic information
-        selected_male_idex <- sample(n.male, n.unmated, replace = TRUE)
+        selected_male_idex <- sample(n.male, n.fem, replace = TRUE)
         selected_male <- male[selected_male_idex, ]
         fem_germline <- fem[rep(1:n.fem, n_offspring), ] |> select(contains("allele"))
         male_germline <- selected_male[rep(1:n.fem, n_offspring), ] |> select(contains("allele"))
@@ -324,6 +324,7 @@ growth <- function(pop_patches,
                          male_germline$allele1,
                          male_germline$allele2),
           gdd_accumulated = 0,
+          next_oviposition = 0,
           parity1 = 0,
           parity2 = 0,
           parity3 = 0,
@@ -382,7 +383,7 @@ growth <- function(pop_patches,
       
     
     # daily humidity  
-      daily_humidty <- humidty[i]
+    daily_humidity <- humidity[i]
       
 
     # Density-dependent survival for aqauatic stages
@@ -401,6 +402,7 @@ growth <- function(pop_patches,
          stage == "egg"   ~ gdd_accumulated + egg_gdd_accumulated,
          stage == "larva" ~ gdd_accumulated + larva_gdd_accumulated,
          stage == "pupa"  ~ gdd_accumulated + pupa_gdd_accumulated,
+         stage == "adult"  ~ 0
        )
      ) 
     
@@ -435,7 +437,8 @@ growth <- function(pop_patches,
        stage == "egg" ~ rbinom(n(), 1, das_temp_dens_As(daily_temp, aquatic_stage_density)),
        stage == "larva" ~ rbinom(n(), 1, das_temp_dens_As(daily_temp, aquatic_stage_density)),
        stage == "pupa" ~ rbinom(n(), 1, das_temp_dens_As(daily_temp, aquatic_stage_density)),
-       stage == "adult" ~ rbinom(n(), 1, ds_temp_humid_As(daily_temp, daily_humidty, species = "An. stephensi")),
+       stage == "adult" ~ rbinom(n(), 1, ds_temp_humid_As(daily_temp, daily_humidity, species = "An. stephensi")),
+       TRUE ~ NA_integer_
      ),
      alive = alive == 1
    )
@@ -591,7 +594,7 @@ simulation <- function(patches,
                   sigma_dd)
     
     # Dispersal
-    pop <- dispersal(pop, dispersal_matrix)
+    pop <- dispersal(pop, dispersal_matrix, check = FALSE)
     
     # Track daily population sizes per patch
   
