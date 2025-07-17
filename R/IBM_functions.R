@@ -200,7 +200,7 @@ growth <- function(pop_patches,
                    ldt,
                    mu,
                    sigma_dd) {
-# if (sim_days == 9) browser()
+ if (sim_days == 15) browser()
   updated_pop_patches <- list()
   
   for (i in seq_along(pop_patches)) {
@@ -218,7 +218,17 @@ growth <- function(pop_patches,
       
       if (n.unmated > 0) {
         realised_mated <- rbinom(n.unmated, 1, prob = (n.male / (beta + n.male)))
-        fem$mated[unmated[realised_mated == 1]] <- 1
+        mate_now <- unmated[realised_mated == 1]
+        n.mate_now <- length(mate_now)
+     
+         if (n.mate_now > 0) {
+        
+        fem$mated[mate_now] <- 1
+        selected_male_idx <- sample(n.male, n.mate_now, replace = TRUE)
+        selected_male <- male[selected_male_idx,]
+        fem$male_allele1[mate_now] <- selected_male$allele1
+        fem$male_allele2[mate_now] <- selected_male$allele2
+        }
       }
       
       
@@ -255,47 +265,47 @@ growth <- function(pop_patches,
       cond2 <- as.numeric(fem$next_oviposition >= delay & fem$parity1 == 1 & fem$parity2 == 0 & fem$gravid == 1)
       cond3 <- as.numeric(fem$next_oviposition >= delay & fem$parity2 == 1 & fem$parity3 == 0 & fem$gravid == 1)
       
+      
       exp_offspring1 <- cond1 * fem$gravid * batch_sizes * exp(-fecundity_effect * homo_loci)
-      fem$parity1[cond1 == 1] <- 1
-      fem$next_oviposition[cond1 == 1] <- 0
-      fem$fed[cond1 == 1] <- 0
-      fem$gravid[cond1 == 1] <- 0
-      
       exp_offspring2 <- cond2 * fem$gravid* batch_sizes * exp(-fecundity_effect * homo_loci)
-      fem$parity2[cond2 == 1] <- 1
-      fem$next_oviposition[cond2 == 1] <- 0
-      fem$fed[cond2 == 1] <- 0
-      fem$gravid[cond2 == 1] <- 0
-      
       exp_offspring3 <- cond3 * fem$gravid * batch_sizes * exp(-fecundity_effect * homo_loci)
-      fem$parity3[cond3 == 1] <- 1
-      
       exp_offspring <- exp_offspring1 + exp_offspring2 + exp_offspring3
       
-      #### Complete Sterility 
-      if (complete_sterile) {
-        homozygous <- rowSums((fem$allele1 + fem$allele2) == 2) > 0 # if any loci is homozygous
-        exp_offspring[homozygous] <- 0
-      }
+      fem$parity1[cond1 == 1] <- 1
+      fem$parity2[cond2 == 1] <- 1
+      fem$parity3[cond3 == 1] <- 1
+      
+      oviposited <- which((cond1+cond2+cond3) > 0)
+    
+      fem$next_oviposition[oviposited] <- 0
+      fem$fed[oviposited] <- 0
+      fem$gravid[oviposited] <- 0
+      
+
+      # #### Complete Sterility 
+      # if (complete_sterile) {
+      #   homozygous <- rowSums((fem$allele1 + fem$allele2) == 2) > 0 # if any loci is homozygous
+      #   exp_offspring[homozygous] <- 0
+      # }
       
     }   else {
       # If not, set offspring count to 0
-      n_offspring <- rep(0, n.fem)
+      exp_offspring <- rep(0, n.fem)
     }
     
     
     # Offspring generation: Draw the actual number of offspring from a Poisson distribution
-    n_offspring <- rpois(n = n.fem, exp_offspring) 
+    n_offspring <- rpois(n.fem, exp_offspring) # (Sounds logical to use Poisson after estimation based on temperature?)
     total_offspring <- sum(n_offspring)
       
     
-      if (total_offspring > 0){
+      if (total_offspring > 0){  
       # Replicate the parents features `n_offspring` times for each offspring, collect only genetic information
-        selected_male_idex <- sample(n.male, n.fem, replace = TRUE)
-        selected_male <- male[selected_male_idex, ]
+
         fem_germline <- fem[rep(1:n.fem, n_offspring), ] |> select(contains("allele"))
-        male_germline <- selected_male[rep(1:n.fem, n_offspring), ] |> select(contains("allele"))
-  
+        male_germline <- fem[rep(1:n.fem, n_offspring), ] |> select(contains("male"))
+         
+        
         # Genetic inheritance
         num_loci <- ncol(fem_germline$allele1)
         stopifnot(num_loci == n_loci)
@@ -321,8 +331,8 @@ growth <- function(pop_patches,
                          fem_germline$allele1,
                          fem_germline$allele2),
           allele2 = ifelse(which_allele_male,
-                         male_germline$allele1,
-                         male_germline$allele2),
+                         male_germline$male_allele1,
+                         male_germline$male_allele2),
           gdd_accumulated = 0,
           next_oviposition = 0,
           parity1 = 0,
