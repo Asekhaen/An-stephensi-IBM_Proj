@@ -17,6 +17,8 @@ ini_pop <- function(patches, n_per_patch, coords, loci, init_frequency) {
       stage = sample(c("egg", "larva", "pupa", "adult"), n_per_patch[i], replace = TRUE),
       allele1 = matrix(rbinom(n = n_per_patch[i] * n_loci, size = 1, prob = init_frequency), ncol = n_loci), # 0 = wild-type, 1 = drive allele
       allele2 = matrix(rbinom(n = n_per_patch[i] * n_loci, size = 1, prob = init_frequency), ncol = n_loci),
+      male_allele1 = matrix(NA, nrow = n_per_patch[i], ncol = n_loci),
+      male_allele2 = matrix(NA, nrow = n_per_patch[i], ncol = n_loci),
       gdd_accumulated = 0,
       next_oviposition = 0,
       parity1 = 0,
