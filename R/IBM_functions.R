@@ -200,7 +200,7 @@ growth <- function(pop_patches,
                    ldt,
                    mu,
                    sigma_dd) {
- if (sim_days == 15) browser()
+ #if (sim_days == 15) browser()
   updated_pop_patches <- list()
   
   for (i in seq_along(pop_patches)) {
@@ -271,6 +271,18 @@ growth <- function(pop_patches,
       exp_offspring3 <- cond3 * fem$gravid * batch_sizes * exp(-fecundity_effect * homo_loci)
       exp_offspring <- exp_offspring1 + exp_offspring2 + exp_offspring3
       
+      
+      # #### Complete Sterility 
+      # if (complete_sterile) {
+      # homozygous <- rowSums((fem$allele1 + fem$allele2) == 2) > 0 # if any loci is homozygous
+      # exp_offspring1 <- cond1 * fem$gravid * batch_sizes * exp(-fecundity_effect * homo_loci)
+      # exp_offspring2 <- cond2 * fem$gravid* batch_sizes * exp(-fecundity_effect * homo_loci)
+      # exp_offspring3 <- cond3 * fem$gravid * batch_sizes * exp(-fecundity_effect * homo_loci)
+      # exp_offspring <- exp_offspring1 + exp_offspring2 + exp_offspring3
+      # exp_offspring[homozygous] <- 0
+      # }
+      
+      
       fem$parity1[cond1 == 1] <- 1
       fem$parity2[cond2 == 1] <- 1
       fem$parity3[cond3 == 1] <- 1
@@ -282,12 +294,7 @@ growth <- function(pop_patches,
       fem$gravid[oviposited] <- 0
       
 
-      # #### Complete Sterility 
-      # if (complete_sterile) {
-      #   homozygous <- rowSums((fem$allele1 + fem$allele2) == 2) > 0 # if any loci is homozygous
-      #   exp_offspring[homozygous] <- 0
-      # }
-      
+   
     }   else {
       # If not, set offspring count to 0
       exp_offspring <- rep(0, n.fem)

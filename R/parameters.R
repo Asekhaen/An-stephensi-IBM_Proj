@@ -14,7 +14,7 @@ daily_survival <- c(egg = 0.8,            # daily survival prob
 
 fecundity <- 50                           # Number of offspring per day per female mosquito
 beta <- 100                                # the adult male population size at which the daily probability of mating is 0.5.
-sim_days <-20                           # Number of simulation in days
+sim_days <-100                           # Number of simulation in days
 bloodmeal_prob <- 0.40                    # Probability that a female find a blood meal
 gdd_required <- 30
 
@@ -28,11 +28,11 @@ dispersal_frac <- 0.01
 
 # Genetic (load) & drive parameters
 n_loci <- 5
-init_frequency = 0.50                    # initial frequency of deleterious recessives
+init_frequency = 0.25                    # initial frequency of deleterious recessives
 conversion_prob <- 0.95                  # Rate at which the drive allele converts the wild-type allele
 resistance_prob <- 0.5                   # prob resistance development or conversion failure
-fecundity_effect <- 0              # effect per homozygous deleterious recessive on fecundity. Set to '0' to turn off
-decay <- 0.5                             
+fecundity_effect <- 1                    # effect per homozygous deleterious recessive on fecundity. Set to '0' to turn off
+decay <- 0.5                            
 
 
 # Environmental/ecological
