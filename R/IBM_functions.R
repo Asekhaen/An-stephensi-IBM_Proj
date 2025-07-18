@@ -226,8 +226,8 @@ growth <- function(pop_patches,
         fem$mated[mate_now] <- 1
         selected_male_idx <- sample(n.male, n.mate_now, replace = TRUE)
         selected_male <- male[selected_male_idx,]
-        fem$male_allele1[mate_now] <- selected_male$allele1
-        fem$male_allele2[mate_now] <- selected_male$allele2
+        fem$male_allele1[mate_now,] <- selected_male$allele1
+        fem$male_allele2[mate_now,] <- selected_male$allele2
         }
       }
       
