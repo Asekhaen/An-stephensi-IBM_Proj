@@ -247,10 +247,7 @@ growth <- function(pop_patches,
       fem$gravid <- ifelse(fem$mated == 1 & fem$fed == 1, 1, 0)
       fem$next_oviposition[fem$gravid == 1] <- fem$next_oviposition[fem$gravid == 1] + 1
       
-      
-      # homozygous loci for each female
-      homo_loci <- rowSums((fem$allele1 + fem$allele2) == 2) 
-      
+ 
       # average daily temperature  
       max_temp <- t_max[i]
       min_temp <- t_min[i]
@@ -260,29 +257,29 @@ growth <- function(pop_patches,
       batch_sizes <- sim_batch_sizes(n.fem)
       
       
-      #### Oviposition 
-      # exp_offspring <- numeric(n.fem)
-      
+      #### Oviposition conditions 
+
       cond1 <- as.numeric(fem$next_oviposition >= delay & fem$parity1 == 0 & fem$gravid == 1)
       cond2 <- as.numeric(fem$next_oviposition >= delay & fem$parity1 == 1 & fem$parity2 == 0 & fem$gravid == 1)
       cond3 <- as.numeric(fem$next_oviposition >= delay & fem$parity2 == 1 & fem$parity3 == 0 & fem$gravid == 1)
+
+      homo_loci <- rowSums((fem$allele1 + fem$allele2) == 2)        # homozygous loci for each female
       
       
-      exp_offspring1 <- cond1 * fem$gravid * batch_sizes * exp(-fecundity_effect * homo_loci)
-      exp_offspring2 <- cond2 * fem$gravid* batch_sizes * exp(-fecundity_effect * homo_loci)
-      exp_offspring3 <- cond3 * fem$gravid * batch_sizes * exp(-fecundity_effect * homo_loci)
-      exp_offspring <- exp_offspring1 + exp_offspring2 + exp_offspring3
       
-      
-      # #### Complete Sterility 
-      # if (complete_sterile) {
-      # homozygous <- rowSums((fem$allele1 + fem$allele2) == 2) > 0 # if any loci is homozygous
-      # exp_offspring1 <- cond1 * fem$gravid * batch_sizes * exp(-fecundity_effect * homo_loci)
-      # exp_offspring2 <- cond2 * fem$gravid* batch_sizes * exp(-fecundity_effect * homo_loci)
-      # exp_offspring3 <- cond3 * fem$gravid * batch_sizes * exp(-fecundity_effect * homo_loci)
-      # exp_offspring <- exp_offspring1 + exp_offspring2 + exp_offspring3
-      # exp_offspring[homozygous] <- 0
-      # }
+      if (complete_sterile) {
+        homozygous <- (homo_loci > 0)
+        sterile <- as.numeric(!homozygous)
+        exp_offspring1 <- cond1 * fem$gravid * batch_sizes * sterile
+        exp_offspring2 <- cond2 * fem$gravid * batch_sizes * sterile
+        exp_offspring3 <- cond3 * fem$gravid * batch_sizes * sterile
+        exp_offspring <- exp_offspring1 + exp_offspring2 + exp_offspring3
+      } else {
+        exp_offspring1 <- cond1 * fem$gravid * batch_sizes * exp(-fecundity_effect * homo_loci)
+        exp_offspring2 <- cond2 * fem$gravid * batch_sizes * exp(-fecundity_effect * homo_loci)
+        exp_offspring3 <- cond3 * fem$gravid * batch_sizes * exp(-fecundity_effect * homo_loci)
+        exp_offspring <- exp_offspring1 + exp_offspring2 + exp_offspring3
+      }
       
       
       fem$parity1[cond1 == 1] <- 1
@@ -363,7 +360,6 @@ growth <- function(pop_patches,
       }
       
     
-    
       # Genetic load: lethal effect
       
       if (lethal_effect){
@@ -373,7 +369,7 @@ growth <- function(pop_patches,
       }
       
       
-    # # Genetic inheritance and Drive conversion
+    # # Gene Drive architecture (conversion mechanism and inheritance)
     # 
     #     drive_conversion <- function(parent, prob1, prob2) {
     #       if (any(is.na(parent$allele1)) || any(is.na(parent$allele2))) {
@@ -471,81 +467,142 @@ growth <- function(pop_patches,
  }
 
 
+# Dispersal: the default is the metapopulation network. Otherwise this can be switched to a stepping stone model
+# 
+# 
+# 
 
-#### Make dispersal matrix ####
-make_dispersal_matrix <- function(coords, lambda, dispersal_frac) {
-  # dispersal matrix 
-  dist_matrix <- as.matrix(dist(coords, method = "euclidean"))
-  
-  #exponential dispersal kernel
-  dispersal_kernel <- exp(-lambda * dist_matrix)
-  
-  # set the diagonal elements to 0 to prevent self-dispersal
-  diag(dispersal_kernel) <- 0
-  
-  
-  # make these rows sum to 1 to get probability of moving to other patch
-  # *if* they left. This dispersal matrix gives the probability of the vector
-  # vector moving between patches
-  rel_dispersal_matrix <- sweep(dispersal_kernel, 1,
-                                rowSums(dispersal_kernel), FUN = "/")
-  
-  # normalise these to have the overall probability of dispersing to that patch,
-  # and add back the probability of remaining
-  dispersal_matrix <- dispersal_frac * rel_dispersal_matrix +
-    (1 - dispersal_frac) * diag(nrow(dispersal_kernel))
-  
-  return(dispersal_matrix)
-}
-
-
-# create a dispersal matrix
-dispersal_matrix <- make_dispersal_matrix(coords = coords, 
-                                          lambda = lambda, 
-                                          dispersal_frac = dispersal_frac)
-
-#### Dispersal function ####
-dispersal <- function(pop, dispersal_matrix, check = FALSE) {
- 
-  patch_indices <- dispersed_pop <- vector(mode = "list", length = nrow(dispersal_matrix))
-  
-  # get new patch indices for each adult
-  for (i in 1:length(pop)) {
-    patch <- pop[[i]]
+  #### Make dispersal matrix ####
+  make_dispersal_matrix <- function(coords, lambda, dispersal_frac) {
+    # dispersal matrix 
+    dist_matrix <- as.matrix(dist(coords, method = "euclidean"))
     
-    # adults in the patch capable of dispersing
-    ad_subset <- patch$stage == "adult" & patch$alive == TRUE
-    n_adults <- sum(ad_subset)
+    #exponential dispersal kernel
+    dispersal_kernel <- exp(-lambda * dist_matrix)
     
-    # If there are no adults, skip dispersal for this patch
-    if (n_adults == 0) next
+    # set the diagonal elements to 0 to prevent self-dispersal
+    diag(dispersal_kernel) <- 0
     
-    # Get the dispersal probabilities for this individual according to the dispersal matrix
-    dispersal_probs <- dispersal_matrix[i,]
-    ad_within_pop_indices <- which(ad_subset)
-    new_pop_indices <- sample(1:length(dispersal_probs), size = n_adults, replace = TRUE, prob = dispersal_probs)
-    patch_indices[[i]] <- tibble(ad_within_pop_indices, new_pop_indices)
-    dispersed_pop[[i]] <- filter(patch, !ad_subset) # move non-adults to same patch in the future
+    
+    # make these rows sum to 1 to get probability of moving to other patch
+    # *if* they left. This dispersal matrix gives the probability of the vector
+    # vector moving between patches
+    rel_dispersal_matrix <- sweep(dispersal_kernel, 1,
+                                  rowSums(dispersal_kernel), FUN = "/")
+    
+    # normalise these to have the overall probability of dispersing to that patch,
+    # and add back the probability of remaining
+    dispersal_matrix <- dispersal_frac * rel_dispersal_matrix +
+      (1 - dispersal_frac) * diag(nrow(dispersal_kernel))
+    
+    return(dispersal_matrix)
   }
   
-  # move individuals to new patches
-  for (i in 1:length(pop)) {
-    patch <- pop[[i]]
-    adults <- patch[patch_indices[[i]]$ad_within_pop_indices, ]
-    for (jj in 1:length(pop)){
-      ads_jj <- filter(adults, patch_indices[[i]]$new_pop_indices == jj)
-      dispersed_pop[[jj]] <- bind_rows(dispersed_pop[[jj]], ads_jj)
+  
+  # create a dispersal matrix
+  dispersal_matrix <- make_dispersal_matrix(coords = coords, 
+                                            lambda = lambda, 
+                                            dispersal_frac = dispersal_frac)
+  
+  #### Metapopulation dispersal function ####
+  
+  meta_dispersal <- function(pop, dispersal_matrix, check = FALSE) {
+    
+    patch_indices <- dispersed_pop <- vector(mode = "list", length = nrow(dispersal_matrix))
+    
+    # get new patch indices for each adult
+    for (i in 1:length(pop)) {
+      patch <- pop[[i]]
+      
+      # adults in the patch capable of dispersing
+      ad_subset <- patch$stage == "adult" & patch$alive == TRUE
+      n_adults <- sum(ad_subset)
+      
+      # If there are no adults, skip dispersal for this patch
+      if (n_adults == 0) next
+      
+      # Get the dispersal probabilities for this individual according to the dispersal matrix
+      dispersal_probs <- dispersal_matrix[i,]
+      ad_within_pop_indices <- which(ad_subset)
+      new_pop_indices <- sample(1:length(dispersal_probs), size = n_adults, replace = TRUE, prob = dispersal_probs)
+      patch_indices[[i]] <- tibble(ad_within_pop_indices, new_pop_indices)
+      dispersed_pop[[i]] <- filter(patch, !ad_subset) # move non-adults to same patch in the future
     }
+    
+    # move individuals to new patches
+    for (i in 1:length(pop)) {
+      patch <- pop[[i]]
+      adults <- patch[patch_indices[[i]]$ad_within_pop_indices, ]
+      for (jj in 1:length(pop)){
+        ads_jj <- filter(adults, patch_indices[[i]]$new_pop_indices == jj)
+        dispersed_pop[[jj]] <- bind_rows(dispersed_pop[[jj]], ads_jj)
+      }
+    }
+    if (check){
+      n_pop <- sum(sapply(pop, nrow))
+      n_disp <- sum(sapply(dispersed_pop, nrow))
+      cat(n_pop, " ", n_disp, "\n")
+    }
+    
+    return(dispersed_pop)
   }
-  if (check){
-    n_pop <- sum(sapply(pop, nrow))
-    n_disp <- sum(sapply(dispersed_pop, nrow))
-    cat(n_pop, " ", n_disp, "\n")
-  }
-  
-  return(dispersed_pop)
-}
 
+
+
+#### Stepping stone dispersal (one-dimensional discrete space) ####
+  
+
+    ss_dispersal <- function(pop_patches, dispersal_frac) {
+      n_patches <- length(pop_patches)
+      dispersed_pop <- vector("list", n_patches)
+      
+      # Initialize empty population for each patch
+      for (i in seq_len(n_patches)) {
+        dispersed_pop[[i]] <- pop_patches[[i]][0, ]
+      }
+      
+      for (i in seq_len(n_patches)) {
+        current_patch <- pop_patches[[i]]
+        
+        if (nrow(current_patch) == 0) next
+        
+        # Split adults and non-adults
+        adults <- current_patch[current_patch$stage == "adult", ]
+        # can_disperse <- rbinom(nrow(current_patch[current_patch$stage == "adult", ]), 1, dispersal_frac)
+        non_adults <- current_patch[current_patch$stage != "adult", ]
+        
+        # Determine which adults disperse
+        ready_to_disperse <- rbinom(nrow(adults), 1, dispersal_frac)
+        dispersing_adults <- adults[ready_to_disperse == 1, ]
+        # dispersing_adults <- current_patch[can_disperse == 1, ]
+        staying_adults <- adults[ready_to_disperse == 0, ]
+        
+        # Disperse adults to i-1 or i+1
+        if (nrow(dispersing_adults) > 0) {
+          directions <- sample(c(-1, 1), nrow(dispersing_adults), replace = TRUE)
+          target_patch <- i + directions
+          target_patch <- pmin(pmax(target_patch, 1), n_patches)  # keep within boundaries i.e. patch 1 and patch "n"
+          
+          for (j in seq_along(target_patch)) {
+            dispersed_pop[[target_patch[j]]] <- bind_rows(
+              dispersed_pop[[target_patch[j]]],
+              dispersing_adults[j, ]
+            )
+          }
+        }
+        
+        # Add stayers (non-dispersing adults and non-adults) to current patch
+        dispersed_pop[[i]] <- bind_rows(
+          dispersed_pop[[i]], 
+          staying_adults,
+          non_adults
+        )
+      }
+      
+      return(dispersed_pop)
+    }
+
+  
 
 #### Simulation: Bring them all together ####
 simulation <- function(patches,
@@ -566,6 +623,7 @@ simulation <- function(patches,
                        lethal_effect,
                        complete_sterile,
                        sim_days,
+                       stepping_stone_model,
                        dispersal_matrix,
                        t_max,
                        t_min,
@@ -613,7 +671,11 @@ simulation <- function(patches,
                   sigma_dd)
     
     # Dispersal
-    pop <- dispersal(pop, dispersal_matrix, check = FALSE)
+    if(stepping_stone_model) {
+      pop <- ss_dispersal(pop, dispersal_frac)
+    } else {
+      pop <- meta_dispersal(pop, dispersal_matrix, check = FALSE)
+    }
     
     # Track daily population sizes per patch
   

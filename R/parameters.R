@@ -22,7 +22,7 @@ gdd_required <- 30
 
 # dispersal parameters
 lambda <- 0.1
-dispersal_frac <- 0.01
+dispersal_frac <- 0.002
 
 
 
@@ -31,7 +31,7 @@ n_loci <- 5
 init_frequency = 0.25                    # initial frequency of deleterious recessives
 conversion_prob <- 0.95                  # Rate at which the drive allele converts the wild-type allele
 resistance_prob <- 0.5                   # prob resistance development or conversion failure
-fecundity_effect <- 1                    # effect per homozygous deleterious recessive on fecundity. Set to '0' to turn off
+fecundity_effect <- 0                    # effect per homozygous deleterious recessive on fecundity. 0 = no effect on fecundity or batch size. > 0 = 1 additive effect. 
 decay <- 0.5                            
 
 
