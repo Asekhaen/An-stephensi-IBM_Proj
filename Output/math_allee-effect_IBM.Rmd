@@ -1,8 +1,9 @@
 ---
 title: "Mathematical description of the IBM"
 output:
-  pdf_document: default
+  word_document: default
   html_document: default
+  pdf_document: default
 date: "2025-05-09"
 header-includes: \usepackage{wasysym}
 ---
@@ -14,11 +15,30 @@ We develop a spatially-explicit individual-based model (IBM) in discrete space a
 Whether or not a female reproduces in a given time period ($R_{i \in \female), j, t}$) depends upon a chain of events. Each adult female can potentially mate with any adult male present in the patch, and this occurs with some probability $m$ estimated by the number of males $M_{j,t}$ in the patch and $\beta$ — the adult male population size at which the daily probability of mating is 0.5 (North et al., 2018), such that, $m$ increases as the number of males in the population increases. Whether this mating then goes on to the successful production of eggs is also probabilistic, and depends on the female acquiring a bloodmeal, which we treat as occurring with probability, $b$. Thus:
 
 $$
-R_{i \in \female,j,t} \sim \text{Bernoulli}(bm)
+m_{i \in \female,j,t} \sim \text{Bernoulli}(m)
 $$
+
+where:
 $$
 m = (\frac {M_{j,t}}{\beta + M_{j,t}})
 $$
+
+$$
+b_{i \in \female,j,t} \sim \text{Bernoulli}(B)
+$$
+
+
+
+$$
+R_{i \in \female,j,t} = 
+\begin{cases}
+1, & bm = 1 \\
+0, & bm\ne 1
+\end{cases}
+$$ 
+
+
+
 
 For each reproducing female, the number of eggs/offspring produced per day is drawn from a Poisson distribution:
 
