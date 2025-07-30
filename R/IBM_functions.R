@@ -27,6 +27,8 @@ ini_pop <- function(patches, n_per_patch, coords, loci, init_frequency) {
       mated = 0,
       fed = 0,
       gravid = 0,
+      birth = NA_integer_,
+      first_ovip_day = NA_integer_,
       alive = TRUE
     )
     if (length(n_per_patch) != patches) warning("Initial patch population does not equal specified number of patches")
@@ -283,6 +285,7 @@ growth <- function(pop_patches,
       
       
       fem$parity1[cond1 == 1] <- 1
+      fem$first_ovip_day[cond1 == 1 & is.na(fem$first_ovip_day)] <- sim_days
       fem$parity2[cond2 == 1] <- 1
       fem$parity3[cond3 == 1] <- 1
       
@@ -347,6 +350,8 @@ growth <- function(pop_patches,
           mated = 0,
           fed = 0,
           gravid = 0,
+          birth = sim_days,
+          first_ovip_day = NA_integer_,
           alive = TRUE
         )
       
@@ -639,6 +644,7 @@ simulation <- function(patches,
   patch_sizes <- list()
   allele_frequency <- list()
   #spread_rate <- list()
+  #generation_time list()
   
   
   for (day in 1:sim_days) {
@@ -676,6 +682,17 @@ simulation <- function(patches,
     } else {
       pop <- meta_dispersal(pop, dispersal_matrix, check = FALSE)
     }
+    
+    
+    # # Track the average generation time: from egg to first oviposition
+    # 
+    # generation_time[[day]] <- do.call(rbind, lapply(pop, function(df) {
+    #   filter(df, sex == 1, !is.na(first_ovip_day), !is.na(birth_day))
+    # }))
+    # 
+    # generation_time$time_to_first_ovip <- generation_time$first_ovip_day - generation_time$birth_day
+    # mean(generation_time$time_to_first_ovip)
+    
     
     # Track daily population sizes per patch
   

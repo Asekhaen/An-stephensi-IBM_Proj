@@ -14,7 +14,7 @@ daily_survival <- c(egg = 0.8,            # daily survival prob
 
 fecundity <- 50                           # Number of offspring per day per female mosquito
 beta <- 100                                # the adult male population size at which the daily probability of mating is 0.5.
-sim_days <-100                           # Number of simulation in days
+sim_days <-60                           # Number of simulation in days
 bloodmeal_prob <- 0.40                    # Probability that a female find a blood meal
 gdd_required <- 30
 
