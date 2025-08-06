@@ -1,4 +1,4 @@
-# install and load packages if needed
+# install and load the following packages if needed
 library(tidyverse)
 library(purrr)
 library(truncnorm)
@@ -11,9 +11,9 @@ library(truncnorm)
 set.seed(20250711)
 
 # Source functions and parameters 
-source("R/parameters.R")
 source("R/sub_functions.R")
 source("R/IBM_functions.R")
+source("R/parameters.R")
 
 
 # plot(coords, cex = 4)
@@ -25,25 +25,25 @@ source("R/IBM_functions.R")
 ###########################################
 
 output <- run_model (patches = patches,
-                   n_per_patch = n_per_patch,
-                   coords = coords,
-                   n_loci = n_loci,
-                   init_frequency = init_frequency,
-                   bloodmeal_prob = bloodmeal_prob,
-                   beta = beta,
-                   decay = decay,
-                   lethal_effect = FALSE,
-                   sterile = FALSE,
-                   sim_days = sim_days,
-                   stepping_stone_model = TRUE,
-                   dispersal_matrix = dispersal_matrix,
-                   t_max,
-                   t_min,
-                   sigma,
-                   surface_area = surface_area,
-                   ldt = ldt,
-                   mu = mu,
-                   sigma_dd = sigma_dd)
+                     n_per_patch = n_per_patch,
+                     coords = coords,
+                     n_loci = n_loci,
+                     init_frequency = init_frequency,
+                     bloodmeal_prob = bloodmeal_prob,
+                     beta = beta,
+                     decay = decay,
+                     lethal_effect = FALSE,
+                     sterile = FALSE,
+                     sim_days = sim_days,
+                     stepping_stone_model = TRUE,
+                     dispersal_matrix = dispersal_matrix,
+                     t_max,
+                     t_min,
+                     sigma,
+                     surface_area = s_area,
+                     ldt = ldt,
+                     mu = mu,
+                     sigma_dd = sigma_dd)
  
 
 

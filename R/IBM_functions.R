@@ -1,5 +1,7 @@
 
-# core functions to run Anopheles stephensi population dynamics ####
+
+# core functions to run Anopheles stephensi population dynamics --------
+
 
 
 # Initial population setup ####
@@ -38,7 +40,7 @@ ini_pop <- function(patches, n_per_patch, coords, loci, init_frequency) {
 
 
 
-#### Growth, reproduction and genetic/drive inheritance ####
+# Growth, reproduction and genetic/drive inheritance ####
 
 growth <- function(pop_patches, 
                    bloodmeal_prob, 
@@ -320,7 +322,7 @@ growth <- function(pop_patches,
 
 # Dispersal ####
 
-# Metapopulation dispersal function ####
+#### Metapopulation dispersal function ####
   
   meta_dispersal <- function(pop, dispersal_matrix, check = FALSE) {
     
@@ -365,7 +367,7 @@ growth <- function(pop_patches,
 
 
 
-# Stepping stone dispersal (one-dimensional discrete space) ####
+#### Stepping stone dispersal (one-dimensional discrete space) ####
   
 
     ss_dispersal <- function(pop_patches, dispersal_prop) {
@@ -420,7 +422,7 @@ growth <- function(pop_patches,
 
   
 
-#### Simulation: Bring them all together ####
+# function to run simulation ####
 run_model <- function(patches,
                        n_per_patch, 
                        coords,
@@ -441,8 +443,8 @@ run_model <- function(patches,
                        ldt,
                        mu,
                        sigma_dd) {
+  
   pop <- ini_pop(patches, n_per_patch, coords, n_loci, init_frequency)
-  l.cov.mat <- place_loci_mat(n_loci, genome.size = 1, var = 1, decay)
   
   patch_sizes <- list()
   allele_frequency <- list()
@@ -477,17 +479,6 @@ run_model <- function(patches,
     } else {
       pop <- meta_dispersal(pop, dispersal_matrix, check = FALSE)
     }
-    
-    
-    # # Track the average generation time: from egg to first oviposition
-    # 
-    # generation_time[[day]] <- do.call(rbind, lapply(pop, function(df) {
-    #   filter(df, sex == 1, !is.na(first_ovip_day), !is.na(birth_day))
-    # }))
-    # 
-    # generation_time$time_to_first_ovip <- generation_time$first_ovip_day - generation_time$birth_day
-    # mean(generation_time$time_to_first_ovip)
-    
     
     # Track daily population sizes per patch
   

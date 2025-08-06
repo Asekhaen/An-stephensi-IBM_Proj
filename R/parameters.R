@@ -1,5 +1,8 @@
 
-# parameters
+
+# general parameters ----------------------------------------------------------
+
+
 
 # simulation time steps
 sim_days <- 25 
@@ -34,6 +37,34 @@ lambda <- 0.1
 dispersal_prop <- 0.002
 
 
+# growth degree day parameters
+# stage development using degree-days (dd): degree-days, percentage/probability of 
+# transitioning (data from Abbasi et al., 2023)   
+
+# Eggs transition
+one_per_egg <- sigma_etimate(30.5, 44.5, 0.01)
+ten_per_egg <- sigma_etimate(33.7, 44.5, 0.1)
+eighty_per_egg <- sigma_etimate(59.6, 44.5, 0.8)
+mean_sigma_egg <- mean(c(one_per_egg, ten_per_egg, eighty_per_egg))
+
+#Larva transition
+one_per_larva <- sigma_etimate(93.9, 145.5, 0.01)
+ten_per_larva <- sigma_etimate(104.1, 145.5, 0.1)
+eighty_per_larva <- sigma_etimate(182.3, 145.5, 0.8)
+mean_sigma_larva <- mean(c(one_per_larva, ten_per_larva, eighty_per_larva))
+
+#Pupa transition
+one_per_pupa <- sigma_etimate(17.7, 29.7, 0.01)
+ten_per_pupa <- sigma_etimate(22.3, 29.7, 0.1)
+eighty_per_pupa <- sigma_etimate(40.4, 29.7, 0.8)
+mean_sigma_pupa <- mean(c(one_per_pupa, ten_per_pupa, eighty_per_pupa))
+
+
+mu <- c(egg = 44.5, larva = 145.5, pupa = 29.7)
+sigma_dd <- c(egg = mean_sigma_egg, 
+              larva = mean_sigma_larva, 
+              pupa = mean_sigma_pupa)
+
 
 ################################################
 # Genetic (load) & drive parameters
@@ -58,22 +89,24 @@ fecundity_effect <- 0
 #controls the rate at which the covariance between two loci decreases with distance
 decay <- 0.5                            
 
+l.cov.mat <- place_loci_mat(n_loci, genome.size = 1, var = 1, decay)
 
 
 ################################################
 # environmental parameters
 ################################################
 
-# create coordinates for the patches/locations 
+# create coordinates and dipersal matrix for the patches/locations 
+
+# random location coordinates
 coords <- as.data.frame(100 * matrix(runif(patches * 2), ncol = 2))
 colnames(coords) <- c("x","y")
 
 
-# saved model used to estimate Life history parameters (Temperature and humidity) 
-# for vector survival estimated from Golding et al., unpublished)
-
-aquatic_stage <- "C:/Users/22181916/Documents/Curtin-PhD/R_and_IBM/An-stephensi-IBM_Proj/R/das_temp_dens_As.RDS"
-adult_stage <- "C:/Users/22181916/Documents/Curtin-PhD/R_and_IBM/An-stephensi-IBM_Proj/R/ds_temp_humid.RDS"
+# dispersal matrix
+dispersal_matrix <- make_dispersal_matrix(coords = coords, 
+                                          lambda = lambda, 
+                                          dispersal_prop = dispersal_prop)
 
 
 # This bit of code generates random daily temperature and humidity to estimates  
@@ -94,6 +127,9 @@ humidity <- matrix(rtruncnorm(patches * sim_days, a = 0, b = 100,
 alpha <- 0.0001   
 
 # size of the habitat in cm*
-surface_area <- 10000                   
+s_area <- 10000                   
+
+
+
 
 

@@ -35,34 +35,6 @@ prob_trans <- function(dd, mu, sigma) {
   pnorm(dd, mu, sigma)
 }
 
-# growth degree day parameters
-# stage development using degree-days (dd): degree-days, percentage/probability of 
-# transitioning (data from Abbasi et al., 2023)   
-
-# Eggs transition
-one_per_egg <- sigma_etimate(30.5, 44.5, 0.01)
-ten_per_egg <- sigma_etimate(33.7, 44.5, 0.1)
-eighty_per_egg <- sigma_etimate(59.6, 44.5, 0.8)
-mean_sigma_egg <- mean(c(one_per_egg, ten_per_egg, eighty_per_egg))
-
-#Larva transition
-one_per_larva <- sigma_etimate(93.9, 145.5, 0.01)
-ten_per_larva <- sigma_etimate(104.1, 145.5, 0.1)
-eighty_per_larva <- sigma_etimate(182.3, 145.5, 0.8)
-mean_sigma_larva <- mean(c(one_per_larva, ten_per_larva, eighty_per_larva))
-
-#Pupa transition
-one_per_pupa <- sigma_etimate(17.7, 29.7, 0.01)
-ten_per_pupa <- sigma_etimate(22.3, 29.7, 0.1)
-eighty_per_pupa <- sigma_etimate(40.4, 29.7, 0.8)
-mean_sigma_pupa <- mean(c(one_per_pupa, ten_per_pupa, eighty_per_pupa))
-
-
-mu <- c(egg = 44.5, larva = 145.5, pupa = 29.7)
-sigma_dd <- c(egg = mean_sigma_egg, 
-              larva = mean_sigma_larva, 
-              pupa = mean_sigma_pupa)
-
 
 # estimated survival based on temperature and population density (aquatic stage),  
 # and temperature and humidity (adult stage) using daily mortality hazard, and 
@@ -72,8 +44,7 @@ ensure_positive <- function(x) {
   x * as.numeric(x > 0)
 }
 
-# reload lifehistory functions from saved objects (RDS file from Golding et al, unpublished)
-# to estimates Life history parameters (Temperature and humidity) used for survival. 
+# reload lifehistory functions from saved objects (RDS file) to used for survival. 
 # Adapted from Golding et al., unpublished)
 
 rehydrate_lifehistory_function <- function(path_to_object) {
@@ -83,8 +54,13 @@ rehydrate_lifehistory_function <- function(path_to_object) {
                body(object$dummy_function)))
 }
 
+
+aquatic_stage <- "C:/Users/22181916/Documents/Curtin-PhD/R_and_IBM/An-stephensi-IBM_Proj/R/das_temp_dens_As.RDS"
+adult_stage <- "C:/Users/22181916/Documents/Curtin-PhD/R_and_IBM/An-stephensi-IBM_Proj/R/ds_temp_humid.RDS"
+
 das_temp_dens_As <- rehydrate_lifehistory_function(aquatic_stage)
 ds_temp_humid_As <- rehydrate_lifehistory_function(adult_stage)
+
 
 # function to simulate oviposition frequency and batch sizes. mean eggs per female
 # per day (EFD) and mean temperature were estimated from Villena et al., https://doi.org/10.1002/ecy.3685
@@ -171,8 +147,3 @@ make_dispersal_matrix <- function(coords, lambda, dispersal_prop) {
   return(dispersal_matrix)
 }
 
-
-# create a dispersal matrix
-dispersal_matrix <- make_dispersal_matrix(coords = coords, 
-                                          lambda = lambda, 
-                                          dispersal_prop = dispersal_prop)
