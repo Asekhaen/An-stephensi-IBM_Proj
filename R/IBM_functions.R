@@ -58,14 +58,14 @@ growth <- function(pop_patches,
                    ldt,
                    mu,
                    sigma_dd) {
- #if (sim_days == 15) browser()
+    # if (sim_days == 12) browser()
     updated_pop_patches <- list()
     
     for (i in seq_along(pop_patches)) {
       pop <- pop_patches[[i]]  
       
-      male <- pop |> filter(sex == 0, stage == "adult")    # All males
-      fem <- pop |> filter(sex == 1, stage == "adult")     # All females
+      male <- pop[pop$sex == 0 & pop$stage == "adult", ]  # All males
+      fem <- pop[pop$sex == 1 & pop$stage == "adult", ]   # All females
       n.fem <- nrow(fem)
       n.male <- nrow(male)
 
@@ -159,23 +159,41 @@ growth <- function(pop_patches,
       if (total_offspring > 0){  
       # Replicate the parents features `n_offspring` times for each offspring, collect only genetic information
 
-        fem_germline <- fem[rep(1:n.fem, n_offspring), ] |> select(contains("allele"))
-        male_germline <- fem[rep(1:n.fem, n_offspring), ] |> select(contains("male"))
-         
+        fem_germline <- fem[rep(1:n.fem, n_offspring), c("allele1", "allele2")]
+        male_germline <- fem[rep(1:n.fem, n_offspring), c("male_allele1", "male_allele2")]
         
         # Genetic inheritance
         num_loci <- ncol(fem_germline$allele1)
         stopifnot(num_loci == n_loci)
-      
+        
         # # random selection of allele, with linkage 
+        
         which_allele_fn <- function(n_offspring, num_loci, loci_cov_matrix){
           epsilon <- MASS::mvrnorm(n_offspring, rep(0, num_loci), Sigma = loci_cov_matrix)
           selection_prob <- plogis(epsilon)
           matrix(rbinom(n_offspring * num_loci, 1, selection_prob) == 1,
-               nrow = n_offspring,
-               ncol = num_loci)
+                 nrow = n_offspring,
+                 ncol = num_loci)
         }
-
+        
+        # alternative  fucbtion for computational speed
+        # 
+        # which_allele_fn <- function(n_ind, n_loci, loci_cov_matrix) {
+        #   epsilon <- MASS::mvrnorm(n = n_ind,
+        #                            mu = rep(0, n_loci),
+        #                            Sigma = loci_cov_matrix)
+        #   
+        #   # alternatively, pass in 'L_loci_cov_matrix', which is computed earlier as:
+        #   #   L_loci_cov_matrix <- chol(loci_cov_matrix)
+        #   # then inside this function do:
+        #   #   z <- matrix(rnorm(n_ind * n_loci), n_ind, n_loci)
+        #   #   epsilon <- z %*% L
+        #   
+        #   selection_prob <- 1 / (1 + exp(-epsilon))
+        #   u <- matrix(runif(n_ind * n_loci),
+        #               n_ind, n_loci)
+        #   u < selection_prob
+        # }
     
         which_allele_female <- which_allele_fn(total_offspring, num_loci, loci_cov_matrix) # female gametes
         which_allele_male <- which_allele_fn(total_offspring, num_loci, loci_cov_matrix) # male gametes
@@ -204,11 +222,11 @@ growth <- function(pop_patches,
         )
       
         # Update pop with offspring & fem population
-        pop <- pop |> filter(!(sex == 1 & stage == "adult"))
+        pop <- pop[!(pop$sex == 1 & pop$stage == "adult"), ]
         pop <- bind_rows(pop, offspring, fem)
       } else {
         # Update pop with females only
-        pop <- pop |> filter(!(sex == 1 & stage == "adult"))
+        pop <- pop[!(pop$sex == 1 & pop$stage == "adult"), ]
         pop <- bind_rows(pop, fem)
       }
       
@@ -219,6 +237,7 @@ growth <- function(pop_patches,
         homozygous_lethal <- (pop$allele1 == 1) & (pop$allele2 == 1)
         any_homozygous <- rowSums(homozygous_lethal) > 0
         pop <- filter(pop, !any_homozygous)
+        #pop <- pop[pop[!any_homozygous], ]
       }
       
       
@@ -312,7 +331,7 @@ growth <- function(pop_patches,
    )
    
 
-    pop <- filter(pop, alive)
+    pop <- pop[pop$alive,]
     
     updated_pop_patches[[i]] <- pop
   }
@@ -344,7 +363,7 @@ growth <- function(pop_patches,
       ad_within_pop_indices <- which(ad_subset)
       new_pop_indices <- sample(1:length(dispersal_probs), size = n_adults, replace = TRUE, prob = dispersal_probs)
       patch_indices[[i]] <- tibble(ad_within_pop_indices, new_pop_indices)
-      dispersed_pop[[i]] <- filter(patch, !ad_subset) # move non-adults to same patch in the future
+      dispersed_pop[[i]] <- patch[!ad_subset, ]
     }
     
     # move individuals to new patches
@@ -352,7 +371,7 @@ growth <- function(pop_patches,
       patch <- pop[[i]]
       adults <- patch[patch_indices[[i]]$ad_within_pop_indices, ]
       for (jj in 1:length(pop)){
-        ads_jj <- filter(adults, patch_indices[[i]]$new_pop_indices == jj)
+        ads_jj <- adults[patch_indices[[i]]$new_pop_indices == jj, ]
         dispersed_pop[[jj]] <- bind_rows(dispersed_pop[[jj]], ads_jj)
       }
     }

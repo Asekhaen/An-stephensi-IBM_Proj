@@ -6,7 +6,7 @@
 # also takes exponential decay and variance to produce variance-covariance matrix
 
 place_loci_mat <- function(loci, genome.size = 1, var = 1, decay){
-  loci_positions <- (runif(loci, max = genome.size))
+  loci_positions <- sort((runif(loci, max = genome.size)))
   loci_dist_matrix <- as.matrix(dist(loci_positions))^2 
   loci_cov_matrix <- var*exp(-decay*loci_dist_matrix)
   return(loci_cov_matrix)
@@ -65,21 +65,6 @@ ds_temp_humid_As <- rehydrate_lifehistory_function(adult_stage)
 # function to simulate oviposition frequency and batch sizes. mean eggs per female
 # per day (EFD) and mean temperature were estimated from Villena et al., https://doi.org/10.1002/ecy.3685
 
-egg_laying_rate <- function(temp) {
-  peak_temp <- 28
-  peak_val <- 26.2
-  temp_sd <- 6
-  
-  unscaled_value <- dnorm(temp,
-                          mean = peak_temp,
-                          sd = temp_sd)
-  normalisation <- dnorm(peak_temp,
-                         mean = peak_temp,
-                         sd = temp_sd)
-  peak_val * unscaled_value / normalisation
-  
-}
-
 # return the parameters of lognormal with specified mean and variance
 lognormal_params <- function(mean, sd) {
   var <- sd ^ 2
@@ -114,6 +99,22 @@ sim_batch_sizes <- function(n) {
 
 # calculate the frequency of oviposition or expected delay between batches,
 # given the expected batch size
+# 
+egg_laying_rate <- function(temp) {
+peak_temp <- 28
+peak_val <- 26.2
+temp_sd <- 6
+
+unscaled_value <- dnorm(temp,
+                        mean = peak_temp,
+                        sd = temp_sd)
+normalisation <- dnorm(peak_temp,
+                       mean = peak_temp,
+                       sd = temp_sd)
+peak_val * unscaled_value / normalisation
+
+}
+
 expected_egg_laying_delay <- function(temp, expected_batch_size = 96.8) {
   expected_batch_size / egg_laying_rate(temp)
 }
