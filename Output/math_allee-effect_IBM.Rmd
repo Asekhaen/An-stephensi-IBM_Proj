@@ -1,18 +1,20 @@
 ---
 title: "Mathematical description of the IBM"
 output:
-  word_document: default
   html_document: default
+  word_document: default
   pdf_document: default
 date: "2025-05-09"
 header-includes: \usepackage{wasysym}
 ---
 
-We develop a spatially-explicit individual-based model (IBM) in discrete space and time that simulates the population dynamics, life history, and genetics of a generic diploid insect (e.g. dipterans) across a network of metapopulations/patches connected by dispersal. The model incorporates key biological processes: mating/reproduction, growth/transition, survival, and dispersal. Simulations are undertaken on a daily time step (indexed by $t$). Within each patch (indexed by $j$), individuals (indexed by $i$) are explicitly represented and tracked according to their life stage (egg, larva, pupa, adult), sex (male or female, denoted $\male$, $\female$ respectively), viability status (alive or dead), and diploid genotype. Stochastic life-cycle processes are described below.
+We develop a spatially-explicit individual-based model (IBM) in discrete space and time that captures the population dynamics, life history, and genetics of a generic diploid insect (*Anopheles stephensi*) across a landscape with. We simulate the mosquito landscape using using two spatial topologies. First a network of metapopulations/patches connected by dispersal and a one-dimensional space in stepping stone manner. The model incorporates key biological processes: mating/reproduction, growth/transition, survival, and dispersal. Simulations are undertaken on a daily time step (indexed by $t$). Within each patch (indexed by $j$), individuals (indexed by $i$) are explicitly represented and tracked according to their life stage (egg, larva, pupa, adult), sex (male or female, denoted $\male$, $\female$ respectively), viability status (alive or dead), and genome. Adult females are tracked according to whether they have mated, blood fed, gravid, and lastly their parity status which track each ovopisition event.  
+
+Stochastic life-cycle processes are described below.
 
 ## Reproduction
 
-Whether or not a female reproduces in a given time period ($R_{i \in \female), j, t}$) depends upon a chain of events. Each adult female can potentially mate with any adult male present in the patch, and this occurs with some probability $m$ estimated by the number of males $M_{j,t}$ in the patch and $\beta$ — the adult male population size at which the daily probability of mating is 0.5 (North et al., 2018), such that, $m$ increases as the number of males in the population increases. Whether this mating then goes on to the successful production of eggs is also probabilistic, and depends on the female acquiring a bloodmeal, which we treat as occurring with probability, $b$. Thus:
+Whether or not a female reproduces in a given time period ($R_{i \in \female), j, t}$) depends upon a chain of events. Each adult female can potentially mate with any adult male present in the patch, and this occurs with some probability $m$ estimated by the number of males $M_{j,t}$ in the patch and $\beta$ — the adult male population size at which the daily probability of mating is 0.5 (North et al., 2018), such that, $m$ increases as the number of males in the population increases. Whether the female becomes gravid with eggs is also probabilistic, and depends on the female acquiring a bloodmeal, which we treat as occurring with probability, $b$. Thus:
 
 $$
 m_{i \in \female,j,t} \sim \text{Bernoulli}(m)
@@ -40,17 +42,51 @@ $$
 
 
 
-For each reproducing female, the number of eggs/offspring produced per day is drawn from a Poisson distribution:
+The model assume that a female mates once but requires subsequent blood meals for egg development prior to each oviposition event that occurs three times in their lifetime and at least three days apart depending on temperature. During oviposition, each successfully mated and fed female $(R_{i \in \female,j,t} = 1)$ lays a clutch (denoted as $C$) drawn from a negative binomial distribution with $\mu = 96.8$ (Suleman, 1990). 
+
 
 $$
-O_{i \in \female, j, t} \sim \text{Poisson}(f R_{i \in \female,j,t})
+C(R_{i \in \female,j,t} = 1) \sim \text{NegBinomial}(\mu k )
 $$ 
 
-where $f$ is the daily female fecundity.
+The frequency of oviposition denoted as $F$ which is regard as the expected delay between each clutch of egg is estimated by the ratio of the mean clutch size $C$ of *An. stephensi* (Suleman, 1990 https://doi.org/10.1093/jmedent/27.5.819) and the egg laying rate. We modeled the egg laying rate $Er$ as a function of temperature using a normalised the probability density function of a normal (Gaussian) distribution and then, multiplied by the mean eggs per female per day (EFD) (Villena et al., 2022)
+
+  
+                                                                                                                                        
+$$
+E_r = EFD_{\text{mean}} \times 
+\frac{
+\frac{1}{\sqrt{2\pi} \, T_{\text{sd}}} \,
+\exp\left( -\frac{(T - T_{\text{mean}})^2}{2T_{\text{sd}}^2} \right)
+}{
+\frac{1}{\sqrt{2\pi} \, T_{\text{sd}}} \,
+\exp\left( -\frac{(T_{\text{mean}} - T_{\text{mean}})^2}{2T_{\text{sd}}^2} \right)
+}
+$$
+
+where $EFD_mean$ is the mean eggs per female per day at average temperature $T_{mean}$ and standard deviation $T_{sd}$. Therefore, $F$ is given as:  
+
+
+$$
+F = \frac {C}{Er}
+$$
+
 
 ## Stage Development
 
 Each individual carries a variable denoting the individual's stage, $S_i \in \{egg, larva, pupa, adult\}$. Individuals transition between developmental stages according to stage-specific transition probabilities, $\vec{g}$, which records transition probabilities $\{g_{egg \rightarrow larva}, g_{larva \rightarrow pupa}, g_{pupa \rightarrow adult}, g_{adult \rightarrow adult}\}$ where $g_{adult \rightarrow adult} = 1$. Individual transition is stochastic, with realised transitions occurring as a draw from a Bernoulli distribution, according to:
+
+
+
+Each individual is represented by $S_i \in \{egg, larva, pupa, adult\}$ denoting the individual's developmental stage. Individuals transition between developmental stages according to stage-specific growth degree-day requirement $gDD_{S_i}$. Growth degree-day is a measure of thermal accumulation used to predict the timing of biological processes in organisms whose development is regulated by external temperatures (McMaster and Wilhelm, 1997 https://doi.org/10.1016/S0168-1923(97)00027-0). We estimated the stage-specific growth degree-day requirement using daily minimum and maximum temperatures (McMaster and Wilhelm, 1997) and the minimum developmental threshold for *An. stephensi* according to Abbassi et al., 2024. Thus;
+
+$$
+gDD_{S_i} = \frac {(T_{max} + T_{min})}{2}-mDT
+$$
+
+$\vec{g}$, which records transition probabilities $\{g_{egg \rightarrow larva}, g_{larva \rightarrow pupa}, g_{pupa \rightarrow adult}, g_{adult \rightarrow adult}\}$ where $g_{adult \rightarrow adult} = 1$. Individual transition is stochastic, with realised transitions occurring as a draw from a Bernoulli distribution, according to:
+
+
 
 $$
 D_{i,j,t} \sim\text{Bernoulli}(\vec{g}_{S_i})
