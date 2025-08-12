@@ -82,14 +82,7 @@ rlnorm_mean_var <- function(n, mean, sd) {
 }
 
 # simulate delays between egg batches, in days
-sim_delays <- function(n, temp) {
-  expected_delay <- expected_egg_laying_delay(temp)
-  delays_continuous <- rlnorm_mean_var(n,
-                                       expected_delay,
-                                       sd = 0.5)
-  delays <- pmax(1, round(delays_continuous))
-  delays
-}
+
 
 # We simulate the expected batch sizes based on Suleman, 1990 https://doi.org/10.1093/jmedent/27.5.819
 # to match the mean and SD but modelled as negative binomial
@@ -117,6 +110,15 @@ peak_val * unscaled_value / normalisation
 
 expected_egg_laying_delay <- function(temp, expected_batch_size = 96.8) {
   expected_batch_size / egg_laying_rate(temp)
+}
+
+sim_delays <- function(n, temp) {
+  expected_delay <- expected_egg_laying_delay(temp)
+  delays_continuous <- rlnorm_mean_var(n,
+                                       expected_delay,
+                                       sd = 0.5)
+  delays <- pmax(1, round(delays_continuous))
+  delays
 }
 
 

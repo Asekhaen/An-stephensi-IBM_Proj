@@ -58,7 +58,7 @@ growth <- function(pop_patches,
                    ldt,
                    mu,
                    sigma_dd) {
-    # if (sim_days == 12) browser()
+    if (sim_days == 35) browser()
     updated_pop_patches <- list()
     
     for (i in seq_along(pop_patches)) {
@@ -268,16 +268,9 @@ growth <- function(pop_patches,
     #     male_germline <- drive_conversion(male_germline, conversion_prob, resistance_prob) # sires with drive converted germ line
   
       
-    
-    # daily humidity  
-    daily_humidity <- humidity[i]
-      
-    
-    # Density-dependent survival for aqauatic stages
-    count <- sum((pop$stage == "egg") + (pop$stage == "larva") + (pop$stage == "pupa"))
-    aquatic_stage_density <- count/surface_area
-    
-    
+  
+    # stage development using growth-degree day accumulation
+ 
     egg_gdd_accumulated <- cal_dd (max_temp, min_temp, ldt["egg"])
     larva_gdd_accumulated <- cal_dd (max_temp, min_temp, ldt["larva"])
     pupa_gdd_accumulated <- cal_dd (max_temp, min_temp, ldt["pupa"])
@@ -317,7 +310,13 @@ growth <- function(pop_patches,
      select(-starts_with("transition_"))
    
    
-   # Density dependent survival adjusted to temperature (for aquatic stage) and humidty (for adult stage)
+   # Density-dependent survival adjusted to temperature + density (aquatic stage) and temperature + humidity (adult stage)
+   
+   # density of the auqtic stages (eggs, larvae, and pupae) 
+   count <- sum((pop$stage == "egg") + (pop$stage == "larva") + (pop$stage == "pupa"))
+   aquatic_stage_density <- count/surface_area
+   # daily humidity  
+   daily_humidity <- humidity[i]
   
      pop <- pop |> mutate(
        alive = case_when(
@@ -329,7 +328,6 @@ growth <- function(pop_patches,
        ),
        alive = alive == 1
    )
-   
 
     pop <- pop[pop$alive,]
     
@@ -352,24 +350,24 @@ growth <- function(pop_patches,
       patch <- pop[[i]]
       
       # adults in the patch capable of dispersing
-      ad_subset <- patch$stage == "adult" & patch$alive == TRUE
-      n_adults <- sum(ad_subset)
+      dispersal_ready <- patch$stage == "adult" & patch$alive == TRUE
+      n_dispersal_ready <- sum(dispersal_ready)
       
       # If there are no adults, skip dispersal for this patch
-      if (n_adults == 0) next
+      if (n_dispersal_ready == 0) next
       
       # Get the dispersal probabilities for this individual according to the dispersal matrix
       dispersal_probs <- dispersal_matrix[i,]
-      ad_within_pop_indices <- which(ad_subset)
-      new_pop_indices <- sample(1:length(dispersal_probs), size = n_adults, replace = TRUE, prob = dispersal_probs)
-      patch_indices[[i]] <- tibble(ad_within_pop_indices, new_pop_indices)
-      dispersed_pop[[i]] <- patch[!ad_subset, ]
+      dispersers <- which(dispersal_ready)
+      new_pop_indices <- sample(1:length(dispersal_probs), size = n_dispersal_ready, replace = TRUE, prob = dispersal_probs)
+      patch_indices[[i]] <- tibble(dispersers, new_pop_indices)
+      dispersed_pop[[i]] <- patch[!dispersal_ready, ]
     }
     
     # move individuals to new patches
     for (i in 1:length(pop)) {
       patch <- pop[[i]]
-      adults <- patch[patch_indices[[i]]$ad_within_pop_indices, ]
+      adults <- patch[patch_indices[[i]]$dispersers, ]
       for (jj in 1:length(pop)){
         ads_jj <- adults[patch_indices[[i]]$new_pop_indices == jj, ]
         dispersed_pop[[jj]] <- bind_rows(dispersed_pop[[jj]], ads_jj)

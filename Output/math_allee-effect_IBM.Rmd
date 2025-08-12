@@ -1,8 +1,8 @@
 ---
 title: "Mathematical description of the IBM"
 output:
-  html_document: default
   word_document: default
+  html_document: default
   pdf_document: default
 date: "2025-05-09"
 header-includes: \usepackage{wasysym}
@@ -40,18 +40,22 @@ R_{i \in \female,j,t} =
 $$ 
 
 
-
-
 The model assume that a female mates once but requires subsequent blood meals for egg development prior to each oviposition event that occurs three times in their lifetime and at least three days apart depending on temperature. During oviposition, each successfully mated and fed female $(R_{i \in \female,j,t} = 1)$ lays a clutch (denoted as $C$) drawn from a negative binomial distribution with $\mu = 96.8$ (Suleman, 1990). 
 
 
 $$
 C(R_{i \in \female,j,t} = 1) \sim \text{NegBinomial}(\mu k )
-$$ 
+$$
+where $k$ is the dispersion parameter that controls the variance
 
-The frequency of oviposition denoted as $F$ which is regard as the expected delay between each clutch of egg is estimated by the ratio of the mean clutch size $C$ of *An. stephensi* (Suleman, 1990 https://doi.org/10.1093/jmedent/27.5.819) and the egg laying rate. We modeled the egg laying rate $Er$ as a function of temperature using a normalised the probability density function of a normal (Gaussian) distribution and then, multiplied by the mean eggs per female per day (EFD) (Villena et al., 2022)
+The frequency of oviposition or expected delay between egg clutch denoted as $F$ is given by the ratio of the mean clutch size $C$ of *An. stephensi* (Suleman, 1990 https://doi.org/10.1093/jmedent/27.5.819) and the egg laying rate. 
 
-  
+
+$$
+F = \frac {C}{Er}
+$$
+
+We then modeled the egg laying rate $Er$ as a function of temperature by normalising the probability density function of a normal (Gaussian) distribution and then, multiplied by the mean eggs per female per day (EFD) (Villena et al., 2022).
                                                                                                                                         
 $$
 E_r = EFD_{\text{mean}} \times 
@@ -64,69 +68,80 @@ E_r = EFD_{\text{mean}} \times
 }
 $$
 
-where $EFD_mean$ is the mean eggs per female per day at average temperature $T_{mean}$ and standard deviation $T_{sd}$. Therefore, $F$ is given as:  
+where $EFD_{mean}$ is the mean eggs per female per day at average temperature $T_{mean}$ and standard deviation $T_{sd}$. 
 
 
-$$
-F = \frac {C}{Er}
-$$
 
 
 ## Stage Development
 
-Each individual carries a variable denoting the individual's stage, $S_i \in \{egg, larva, pupa, adult\}$. Individuals transition between developmental stages according to stage-specific transition probabilities, $\vec{g}$, which records transition probabilities $\{g_{egg \rightarrow larva}, g_{larva \rightarrow pupa}, g_{pupa \rightarrow adult}, g_{adult \rightarrow adult}\}$ where $g_{adult \rightarrow adult} = 1$. Individual transition is stochastic, with realised transitions occurring as a draw from a Bernoulli distribution, according to:
-
-
-
-Each individual is represented by $S_i \in \{egg, larva, pupa, adult\}$ denoting the individual's developmental stage. Individuals transition between developmental stages according to stage-specific growth degree-day requirement $gDD_{S_i}$. Growth degree-day is a measure of thermal accumulation used to predict the timing of biological processes in organisms whose development is regulated by external temperatures (McMaster and Wilhelm, 1997 https://doi.org/10.1016/S0168-1923(97)00027-0). We estimated the stage-specific growth degree-day requirement using daily minimum and maximum temperatures (McMaster and Wilhelm, 1997) and the minimum developmental threshold for *An. stephensi* according to Abbassi et al., 2024. Thus;
+Each individual carries a variable denoting the individual's stage, $S_i$. The development or transition $D_{i,j,t}$ between stages in a given location $j$ at time $t$ is stochastic and occurs as a draw from a Bernoulli distribution with probability $p_{S_i}$, representing the probability of transitioning from that developmental stage to the next. 
 
 $$
-gDD_{S_i} = \frac {(T_{max} + T_{min})}{2}-mDT
+D_{i,j,t} \sim \text{Bernoulli}(p_{S_i})
 $$
 
-$\vec{g}$, which records transition probabilities $\{g_{egg \rightarrow larva}, g_{larva \rightarrow pupa}, g_{pupa \rightarrow adult}, g_{adult \rightarrow adult}\}$ where $g_{adult \rightarrow adult} = 1$. Individual transition is stochastic, with realised transitions occurring as a draw from a Bernoulli distribution, according to:
 
+This probability $p_{S_i}$ is given as as the probability density function of a normal distribution:
 
 
 $$
-D_{i,j,t} \sim\text{Bernoulli}(\vec{g}_{S_i})
+p_{S_i}= \frac{1}{\sqrt{2\pi} \, \sigma_{S_i}} \, e^{ - \frac{(cDD_{S_i,j,t} - \mu_{S_i})^2}{2\sigma_{S_i}^2}}
 $$
+where $cDD_{S_i,j,t}$ is the cumulative or overall growth degree-days needed for stage completion and/or transition and $gDD_{S_i,j,t}$ is the daily growth degree-day estimates. Growth degree-day is a measure of thermal accumulation used to predict the timing of biological processes in many ectotherms (McMaster and Wilhelm, 1997 https://doi.org/10.1016/S0168-1923(97)00027-0). The cumulative growth degree-days $cDD_{S_i,j,t}$ is the summation of daily $gDD_{S_i,j,t}$:
+
+
+$$
+cDD_{S_i,j,t} = \sum_{t+1}^{t} gDD_{S_i,j,t}
+$$
+which we estimated using fluctuations in daily temperature (McMaster and Wilhelm, 1997) and the minimum developmental threshold for *An. stephensi* (Abbasi et al., 2024).
+
+$$
+gDD_{S_i,j,t} = \frac {(T_{max} + T_{min})}{2}-mDT
+$$
+
+
+$T_{max}$ and $T_{min}$ are maximum and minimum daily temperature, respectively and $mDT$ is the minimum development threshold below which, development does not occur. $\mu_{S_i}$ is mean $gDD$ estimates at which 50% of individuals in that stage develop or transition to the next (Abbasi et al 2024), and the standard deviation $\sigma_{S_i}$ was back-calculated from the quantile observations of Abbasi et al., (2024) using the inverse error function of a normal distribution. 
+
+
 
 ## Daily survival
 
-Survival is governed by both intrinsic and extrinsic factors. Intrinsic survival is the baseline survival influenced by the individual's internal mechanisms (e.g. biology and genetics). This determines the maximum survival rate for each stage, $\vec{v} = {v_{egg}, v_{larva}, v_{pupa}, v_{adult}}$
+We model the daily survival probabilities $v_{i,j,t}$ of the aquatic stages given water temperature and population density, and adult survival probabilities $v_{adult,j,t}$ given air temperature and humidity based on estimates from Golding et al., (unpublished data). Thus, whether an individual in any stage (aquatic $V_{i,j,t}$ or adult $V_{adult,j,t}$), survives is drawn from a Bernoulli distribution:
 
-Conversely, extrinsic survival is influenced by external factors such as extreme temperature, predation, resource limitation and competition, etc. is captured through temperature-dependent and density-dependent survival probabilities.
-
-Temperature-dependent survival is a function of site and time:
+Aquatic stage
 
 $$
-\phi_T (j,t)= e^{-\frac{(T_{j,t} - T_{\text{opt}})^2}{2\sigma^2}}
+V_{i,j,t} \sim \text {Bernoulli} (v_{i,j,t})
 $$
-
-where $T_{j,t}$, represents the daily recorded temperature at a given site, and $T_{\text{opt}}$ the optimum survival temperature, and $\sigma$, a factor that controls how steep survival respond to temperature changes outside optimum temperature condition.
-
-Similarly, density-dependent survival is a function of site and time:
-
 $$
-  \phi_N(i,j,t) =
-    \begin{cases}
-      1 & \text{if } S_i \ne \text{larva}\\
-      (\frac{1}{1+\alpha,c_{j,t}}) & \text{if } S_i = \text{larva}
-    \end{cases}       
+v_{i,j,t} = -\exp (-\exp (q_{1}(\text{WaterTemp}) + {v}C_{j,t}a^*))
 $$
+where the first term in the equation is the log daily mortality hazard estimated at a given water temperature using a generalised additive Cox proportional hazard model based on the work of Villena et al. (2022). $v$ indicate increase in the log daily hazard as population size $C_{j,t}$ increases, and is =0.02765028. $a^*$ represent the standardised surface area used for the experiment by Villena et al. (2022) and is = 28.58147 cm2.
 
-where $c_{j,t}$ is the number of larva in each patch, and $\alpha$ is the strength of density dependence in the targeted stage and can be estimated from experimental studies. This formulation assumes a decrease in survival as larval density increases, and reflects competition for limited resources (Bellows, 1981; Walker et al., 2020).
 
-Finally, realised survival is treated as a stochastic process with a draw from a Bernoulli distribution:
+
+
+
+Similarly, whether an adult survives or not $V_{adult,j,t}$ was drawn from a Bernoulli trial with a probability of survival $v_{adult,j,t}$ that was estimated using daily air temperature and humidity. 
 
 $$
-V_{i,j,t} \sim\text{Bernoulli} (\vec{v}_{S_i}\phi_T (j,t)\phi_N(i,j,t)).
+V_{adult,j,t} \sim \text {Bernoulli} (v_{adult,j,t})
 $$
+
+$$
+v_{adult,j,t} = -\exp (-\exp (q_{2}(\text{AirTemp, Humidity}) + q_{2}^*))
+$$
+the log daily adult mortality hazard denoted by $q_{2}(\text{AirTemp, Humidity})$ was estimated using a generalised additive Cox proportional hazard model and fitted with experimental data from An. stephensi and An. gambiae (Villena et al., 2022; Golding et al., unpublished data). $q_2^*$ = 2.047051 is calculated as the log of the hazard correction and describes the effect of field conditions on mortality. 
+
+
 
 ## Daily Dispersal
 
-Adults (male and female) disperse between patches according to an exponential dispersal kernel. Dispersal from origin ($j$) to destination ($k$), occurs with a probability that decreases exponentially as the Euclidean distance between patches increases. The dispersal kernel $K$ is given below as:
+Our IBM assumes that only adults disperse with zero mortality during dispersal. We model dispersal using two approaches; a negative exponential dispersal kernel for the meta-population model and a nearest-neighbour (stepping-stone model) dispersal for the one-dimensional spatial model. 
+
+# Metapopulation model
+For the metapopulation model, adults (male and female) disperse between patches according to an exponential dispersal kernel. Dispersal from origin ($j$) to destination ($k$), occurs with a probability that decreases exponentially as the distance between patches increases. The dispersal kernel $K$ is given below as:
 
 $$
 K_{j,k} = 
@@ -136,13 +151,12 @@ e^{-\lambda d_{j,k}}, & j \ne k \\
 \end{cases}
 $$ 
 
-where $d_{j,k}$ is the Euclidean distance between patches and $\lambda$ is an exponential decay parameter that controls the decay rate, and then each row of the resulting dispersal matrix is then normalised (sum to 1) resulting in conditional probabilities \$M\_{j,k}:
+where $d_{j,k}$ is the Euclidean distance between patches and $\lambda$ is an exponential decay parameter that controls the decay rate. Each row of the resulting dispersal matrix is then normalised resulting in conditional probabilities $M_{j,k}$:
 
 $$
 M_{j,k} = \frac{K_{j,k}} {\sum_{k} K_{j,k}}
 $$ 
-
-and since only a fraction $r$ of the adults disperse daily, the true probability $P_{j,k}$ of an individual moving from $j$ to $k$ is calculated thus:
+and since each adult has a probability $r$ of dispersing daily, the true probability $P_{j,k}$ of an adult moving from $j$ to $k$ is calculated thus:
 
 $$
 P_{j,k} =
@@ -151,3 +165,43 @@ rM_{j,k}, & j \ne k \\
 1-r, & j = k 
 \end{cases}
 $$
+
+
+# Nearest-neighbour (Stepping stone) model
+In the nearest-neighbour model, each individual has a daily probability $r$ of leaving its current patch and whether it leaves or remain $Z_{i,j,t}$ is drawn from a Bernoulli trial. If this trial is successful, the adult moves to adjacent patches denoted by $d_{k}$ either to the left $d_{k}\{-1\}$ or right $d_{k}\{+1\}$ with equal probability $p(d_{k})$. We handle boundaries by ensuring that dispersing adults do not move beyond valid patches (i.e patch 1 to "n"). 
+
+$$
+Z_{i,j,t} \sim \text {Bernoulli} (r)
+$$
+
+$$
+Z_{i,j,t}(d_k) =
+\begin{cases}
+1, & p(d_{k} = -1) = p(d_{k} = +1) = \frac {1}{2} \\
+0, & d_k = 0 
+\end{cases}
+$$
+
+
+# Genetic inheritance 
+
+We assume that loci are arranged linearly along the genome of each individual. For each offspring, gametes were formed by selecting one allele per locus from each parent. Rather than assuming independent segregation, we modelled genetic linkage by generating correlated allele choices. To achieve this, we obtained a distance matrix between pairs of loci based on the Euclidean distances and calculated the variance-covariance matrix, which describes linkage or genetic correlation between loci. Using the variance-covariance matrix, we generated multivariate normal random effects $ε$ values that were transformed to probabilities via a logistic function. These resulting probabilities were then used to conduct Bernoulli trials to determine which allele (from each parent) is inherited by the offspring. Therefore, if $L$ the number of loci, and $\Sigma$ the variance-covariance matrix describing correlations among loci. The multivariate random effect $\epsilon$ is given as:  
+
+
+
+$$
+
+\epsilon_i \sim \mathcal{N}_L\left(\mathbf{0}, \Sigma \right)
+
+$$
+
+where $\epsilon_i = (\epsilon_{i1}, \dots, \epsilon_{iL})$ and $\mathcal{N}_L$ denotes the $L$-variate normal distribution. Thus, the probability $\rho_{i}$ of inheriting an allele in any locus a given parent is derived using the logistic function:
+
+$$
+\rho_{i} = \frac{1}{1 + (\exp (-\epsilon_{i}))}
+$$
+
+where $\rho_{i}  = (\rho_{il} , \dots,\rho_{iL})$.
+
+
+

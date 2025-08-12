@@ -5,7 +5,7 @@
 
 
 # simulation time steps
-sim_days <- 25 
+sim_days <- 50 
 
 #################################################
 # life history parameters
@@ -116,7 +116,7 @@ t_max  <-  matrix(rnorm(patches * sim_days,
                        nrow = sim_days, ncol = patches)  
 
 t_min <-  matrix(rnorm(patches * sim_days, 
-                       mean = 20, sd = 5), 
+                       mean = 28, sd = 3), 
                  nrow = sim_days, ncol = patches)
 
 humidity <- matrix(rtruncnorm(patches * sim_days, a = 0, b = 100,
