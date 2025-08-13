@@ -8,25 +8,23 @@ date: "2025-05-09"
 header-includes: \usepackage{wasysym}
 ---
 
-We develop a spatially-explicit individual-based model (IBM) in discrete space and time that captures the population dynamics, life history, and genetics of a generic diploid insect (*Anopheles stephensi*) across a landscape with. We simulate the mosquito landscape using using two spatial topologies. First a network of metapopulations/patches connected by dispersal and a one-dimensional space in stepping stone manner. The model incorporates key biological processes: mating/reproduction, growth/transition, survival, and dispersal. Simulations are undertaken on a daily time step (indexed by $t$). Within each patch (indexed by $j$), individuals (indexed by $i$) are explicitly represented and tracked according to their life stage (egg, larva, pupa, adult), sex (male or female, denoted $\male$, $\female$ respectively), viability status (alive or dead), and genome. Adult females are tracked according to whether they have mated, blood fed, gravid, and lastly their parity status which track each ovopisition event.  
+We develop a spatially-explicit individual-based model (IBM) with discrete space and time that captures the population dynamics, life history, and genetics of a generic diploid insect (*Anopheles stephensi*). We simulate the mosquito landscape using two spatial topologies: a network of metapopulations/patches connected by dispersal and a one-dimensional space (stepping-stone model). The model incorporates key biological processes: reproduction (mating and oviposition), growth/transition, survival, and dispersal. Simulations are undertaken on a daily time step (indexed by $t$). Within each patch (indexed by $j$), individuals (indexed by $i$) are explicitly represented and tracked according to their life stage (egg, larva, pupa, adult), sex (male or female, denoted $\male$, $\female$ respectively), viability status (alive or dead), and genome. Adult females are further tracked according to their mating, feeding, gravid, and parity status. The stochastic life-cycle processes are fully described below.
 
-Stochastic life-cycle processes are described below.
+# Reproduction
 
-## Reproduction
-
-Whether or not a female reproduces in a given time period ($R_{i \in \female), j, t}$) depends upon a chain of events. Each adult female can potentially mate with any adult male present in the patch, and this occurs with some probability $m$ estimated by the number of males $M_{j,t}$ in the patch and $\beta$ — the adult male population size at which the daily probability of mating is 0.5 (North et al., 2018), such that, $m$ increases as the number of males in the population increases. Whether the female becomes gravid with eggs is also probabilistic, and depends on the female acquiring a bloodmeal, which we treat as occurring with probability, $b$. Thus:
+Reproduction in females depends upon a chain of events. Each adult female can potentially mate with any adult male present in the patch, and this occurs with some probability $m$ estimated by the number of males $N_{j,t}$ in the patch and $\beta$; the adult male population size at which the daily probability of mating is 0.5 (North et al., 2018), such that, $m$ increases as the number of males in the population increases. Whether the female becomes gravid and lays eggs $R_{i \in \female), j, t}$) is probabilistic, and depends on the female feeding on bloodmeal, which we treat as occurring with probability, $b$. Thus:
 
 $$
-m_{i \in \female,j,t} \sim \text{Bernoulli}(m)
+M_{i \in \female,j,t} \sim \text{Bernoulli}(m)
 $$
 
 where:
 $$
-m = (\frac {M_{j,t}}{\beta + M_{j,t}})
+m = (\frac {N_{j,t}}{\beta + N_{j,t}})
 $$
 
 $$
-b_{i \in \female,j,t} \sim \text{Bernoulli}(B)
+B_{i \in \female,j,t} \sim \text{Bernoulli}(b)
 $$
 
 
@@ -38,27 +36,24 @@ R_{i \in \female,j,t} =
 0, & bm\ne 1
 \end{cases}
 $$ 
+The model assumes that an adult female mate once in their lifetime and then stores the male sperm for future oviposition following subsequent bloodmeals, which is required for egg development (Charlwood and Jones, 1979). We design this in this way so that subsequent offspring produced from the same sperm share the same genetic materials. The gonotrophic length from mating to bloodmeal intake to oviposition takes an average of three days, depending on temperature (Reisen and Aslamkhan, 1979). Following successful mating and feeding $(R_{i \in \female,j,t} = 1)$, a female lays a clutch of eggs (denoted as $C$) up to three times in their lifetime (Degner and Harington, 2016). Each oviposition is drawn from a negative binomial distribution with $\mu = 96.8$, which is the expected average clutch size of An. stephensi (Suleman, 1990 https://doi.org/10.1093/jmedent/27.5.819).
 
-
-The model assume that a female mates once but requires subsequent blood meals for egg development prior to each oviposition event that occurs three times in their lifetime and at least three days apart depending on temperature. During oviposition, each successfully mated and fed female $(R_{i \in \female,j,t} = 1)$ lays a clutch (denoted as $C$) drawn from a negative binomial distribution with $\mu = 96.8$ (Suleman, 1990). 
-
-
-$$
-C(R_{i \in \female,j,t} = 1) \sim \text{NegBinomial}(\mu k )
-$$
-where $k$ is the dispersion parameter that controls the variance
-
-The frequency of oviposition or expected delay between egg clutch denoted as $F$ is given by the ratio of the mean clutch size $C$ of *An. stephensi* (Suleman, 1990 https://doi.org/10.1093/jmedent/27.5.819) and the egg laying rate. 
 
 
 $$
-F = \frac {C}{Er}
+C(R_{i \in \female,j,t} = 1) \sim \text{NegBinomial}(\mu n )
+$$
+where $n$ is the dispersion parameter that controls the variance. The expected delay between oviposition, denoted as $d$ is given by the ratio of $\mu$ and $L$ (the egg laying rate).
+
+
+$$
+d = \frac {\mu}{L}
 $$
 
-We then modeled the egg laying rate $Er$ as a function of temperature by normalising the probability density function of a normal (Gaussian) distribution and then, multiplied by the mean eggs per female per day (EFD) (Villena et al., 2022).
+We then modelled the egg-laying rate $L$ as a function of temperature by normalising the probability density function of a normal (Gaussian) distribution and multiplying it by the mean eggs per female per day (EFD) (Villena et al., 2022).
                                                                                                                                         
 $$
-E_r = EFD_{\text{mean}} \times 
+L = EFD_{\text{mean}} \times 
 \frac{
 \frac{1}{\sqrt{2\pi} \, T_{\text{sd}}} \,
 \exp\left( -\frac{(T - T_{\text{mean}})^2}{2T_{\text{sd}}^2} \right)
@@ -73,102 +68,105 @@ where $EFD_{mean}$ is the mean eggs per female per day at average temperature $T
 
 
 
-## Stage Development
+# Growth/Development
 
-Each individual carries a variable denoting the individual's stage, $S_i$. The development or transition $D_{i,j,t}$ between stages in a given location $j$ at time $t$ is stochastic and occurs as a draw from a Bernoulli distribution with probability $p_{S_i}$, representing the probability of transitioning from that developmental stage to the next. 
-
-$$
-D_{i,j,t} \sim \text{Bernoulli}(p_{S_i})
-$$
-
-
-This probability $p_{S_i}$ is given as as the probability density function of a normal distribution:
-
+Each individual carries a variable denoting the individual's stage, $S_i$. The development or transition $G_{i,j,t}$ between stages in a given location $j$ at time $t$ is drawn from a Bernoulli distribution with probability $p({S_i})$ that indicate the chances of transitioning from that developmental stage to the next. 
 
 $$
-p_{S_i}= \frac{1}{\sqrt{2\pi} \, \sigma_{S_i}} \, e^{ - \frac{(cDD_{S_i,j,t} - \mu_{S_i})^2}{2\sigma_{S_i}^2}}
+G_{i,j,t} \sim \text{Bernoulli}(p(S_i))
 $$
-where $cDD_{S_i,j,t}$ is the cumulative or overall growth degree-days needed for stage completion and/or transition and $gDD_{S_i,j,t}$ is the daily growth degree-day estimates. Growth degree-day is a measure of thermal accumulation used to predict the timing of biological processes in many ectotherms (McMaster and Wilhelm, 1997 https://doi.org/10.1016/S0168-1923(97)00027-0). The cumulative growth degree-days $cDD_{S_i,j,t}$ is the summation of daily $gDD_{S_i,j,t}$:
+
+
+we calculated this probability $p({S_i})$ using the probability density function of a normal distribution as shown below as:
+
+
+$$
+ p({S_i})= \frac{1}{\sqrt{2\pi} \, \sigma_{S_i}} \, e^{ - \frac{(cDD_{S_i,j,t} - \mu_{S_i})^2}{2\sigma_{S_i}^2}}
+$$
+where $cDD_{S_i,j,t}$ is the accumulated or overall growth degree-days required for stage completion and/or transition and $gDD_{S_i,j,t}$ is the daily growth degree-day estimates. Growth degree-day is a measure of thermal accumulation used to predict phenology or the timing of biological processes e.g. development times in ectotherms (McMaster and Wilhelm, 1997). Here, $cDD_{S_i,j,t}$ is the amount of $gDD_{S_i,j,t}$ accumulated until the stage requirement is attained and the individual moved to the next deveopmental stage:
 
 
 $$
 cDD_{S_i,j,t} = \sum_{t+1}^{t} gDD_{S_i,j,t}
 $$
-which we estimated using fluctuations in daily temperature (McMaster and Wilhelm, 1997) and the minimum developmental threshold for *An. stephensi* (Abbasi et al., 2024).
+Once an individual completes its development and transitions to the next stage, $cDD_{S_i,j,t}$  reset to zero to accumulate the new $gDD_{S_i,j,t}$ for that stage. we estimated  $gDD_{S_i,j,t}$ using fluctuations in daily temperature (McMaster and Wilhelm, 1997) and the minimum developmental threshold for *An. stephensi* (Abbasi et al., 2024).
 
 $$
 gDD_{S_i,j,t} = \frac {(T_{max} + T_{min})}{2}-mDT
 $$
 
 
-$T_{max}$ and $T_{min}$ are maximum and minimum daily temperature, respectively and $mDT$ is the minimum development threshold below which, development does not occur. $\mu_{S_i}$ is mean $gDD$ estimates at which 50% of individuals in that stage develop or transition to the next (Abbasi et al 2024), and the standard deviation $\sigma_{S_i}$ was back-calculated from the quantile observations of Abbasi et al., (2024) using the inverse error function of a normal distribution. 
+where $T_{max}$ and $T_{min}$ are the maximum and minimum daily temperatures, respectively and $mDT$ is the minimum development threshold below which, development does not occur. $\mu_{S_i}$ is the mean $cgDD$ estimates at which 50% of individuals in that stage complete their development or transition to the next stage as estimated by Abbasi et al, (2024). We then back-calculate the standard deviation $\sigma_{S_i}$ from the quantile observations by Abbasi et al., (2024) using the inverse error function of a normal distribution. 
 
 
 
-## Daily survival
+# Daily survival
 
-We model the daily survival probabilities $v_{i,j,t}$ of the aquatic stages given water temperature and population density, and adult survival probabilities $v_{adult,j,t}$ given air temperature and humidity based on estimates from Golding et al., (unpublished data). Thus, whether an individual in any stage (aquatic $V_{i,j,t}$ or adult $V_{adult,j,t}$), survives is drawn from a Bernoulli distribution:
+Following the method described by Golding et al., (unpublished data), we model the daily survival probabilities $v_{i,j,t}$ of the aquatic stages given water temperature and population density, and adult survival probabilities $v_{adult,j,t}$ given air temperature and humidity based on estimates from Golding et al., (unpublished data). Thus, whether an individual in any stage (aquatic $V_{i,j,t}$ or adult $V_{adult,j,t}$), survives is drawn from a Bernoulli distribution:
 
-Aquatic stage
+##Aquatic stage
 
 $$
 V_{i,j,t} \sim \text {Bernoulli} (v_{i,j,t})
 $$
+
 $$
-v_{i,j,t} = -\exp (-\exp (q_{1}(\text{WaterTemp}) + {v}C_{j,t}a^*))
+v_{i,j,t} = -\exp (-\exp (q_{1}(\text{WaterTemp}) + {y}U_{j,t}a^*))
 $$
-where the first term in the equation is the log daily mortality hazard estimated at a given water temperature using a generalised additive Cox proportional hazard model based on the work of Villena et al. (2022). $v$ indicate increase in the log daily hazard as population size $C_{j,t}$ increases, and is =0.02765028. $a^*$ represent the standardised surface area used for the experiment by Villena et al. (2022) and is = 28.58147 cm2.
+where the first term in the equation is the log daily mortality hazard estimated at a given water temperature using a generalised additive Cox proportional hazard model based on the work of Villena et al. (2022), $y$ = 0.02765028 and represents increase in the log daily hazard as population size $U_{j,t}$ increases, and $a^*$   = 28.58147 cm2 representing the standardised surface area used by Villena et al. (2022) to conduct their experiment
 
 
 
 
+##Adult stage:
 
-Similarly, whether an adult survives or not $V_{adult,j,t}$ was drawn from a Bernoulli trial with a probability of survival $v_{adult,j,t}$ that was estimated using daily air temperature and humidity. 
 
 $$
 V_{adult,j,t} \sim \text {Bernoulli} (v_{adult,j,t})
 $$
 
+
 $$
 v_{adult,j,t} = -\exp (-\exp (q_{2}(\text{AirTemp, Humidity}) + q_{2}^*))
 $$
-the log daily adult mortality hazard denoted by $q_{2}(\text{AirTemp, Humidity})$ was estimated using a generalised additive Cox proportional hazard model and fitted with experimental data from An. stephensi and An. gambiae (Villena et al., 2022; Golding et al., unpublished data). $q_2^*$ = 2.047051 is calculated as the log of the hazard correction and describes the effect of field conditions on mortality. 
+
+Here, the log daily adult mortality hazard $q_{2}(\text{AirTemp, Humidity})$ which is the first term in the equation was estimated as described above and fitted with experimental data from *An. stephensi* and *An. gambiae* (Villena et al., 2022; Golding et al., unpublished data). $q_2^*$ = 2.047051 is the log of the hazard correction and describes the effect of field conditions on adult mortality.
 
 
 
-## Daily Dispersal
+# Daily Dispersal
 
 Our IBM assumes that only adults disperse with zero mortality during dispersal. We model dispersal using two approaches; a negative exponential dispersal kernel for the meta-population model and a nearest-neighbour (stepping-stone model) dispersal for the one-dimensional spatial model. 
 
-# Metapopulation model
-For the metapopulation model, adults (male and female) disperse between patches according to an exponential dispersal kernel. Dispersal from origin ($j$) to destination ($k$), occurs with a probability that decreases exponentially as the distance between patches increases. The dispersal kernel $K$ is given below as:
+## Negative exponential dispersal kernel (Metapopulation model)
+For the metapopulation model, dispersing individuals move from an origin patch ($j$) to a destination ($k$), with a probability that decreases exponentially as the distance between patches increases. The dispersal kernel $K$ is given below as:
 
 $$
 K_{j,k} = 
 \begin{cases}
-e^{-\lambda d_{j,k}}, & j \ne k \\
+e^{-\lambda W_{j,k}}, & j \ne k \\
 0, & j = k
 \end{cases}
 $$ 
 
-where $d_{j,k}$ is the Euclidean distance between patches and $\lambda$ is an exponential decay parameter that controls the decay rate. Each row of the resulting dispersal matrix is then normalised resulting in conditional probabilities $M_{j,k}$:
+where $W_{j,k}$ is the Euclidean distance between patches and $\lambda$ is an exponential decay parameter that controls the decay rate. Each row of the resulting dispersal matrix is then normalised, resulting in conditional probabilities $O_{j,k}$:
 
 $$
-M_{j,k} = \frac{K_{j,k}} {\sum_{k} K_{j,k}}
+O_{j,k} = \frac{K_{j,k}} {\sum_{k} K_{j,k}}
 $$ 
-and since each adult has a probability $r$ of dispersing daily, the true probability $P_{j,k}$ of an adult moving from $j$ to $k$ is calculated thus:
+and given each adult has a daily probability $r$ of dispersing, the true probability $X_{j,k}$ of an adult moving from $j$ to $k$ is calculated as:
 
 $$
-P_{j,k} =
+X_{j,k} =
 \begin{cases}
-rM_{j,k}, & j \ne k \\
+rO_{j,k}, & j \ne k \\
 1-r, & j = k 
 \end{cases}
 $$
 
 
-# Nearest-neighbour (Stepping stone) model
-In the nearest-neighbour model, each individual has a daily probability $r$ of leaving its current patch and whether it leaves or remain $Z_{i,j,t}$ is drawn from a Bernoulli trial. If this trial is successful, the adult moves to adjacent patches denoted by $d_{k}$ either to the left $d_{k}\{-1\}$ or right $d_{k}\{+1\}$ with equal probability $p(d_{k})$. We handle boundaries by ensuring that dispersing adults do not move beyond valid patches (i.e patch 1 to "n"). 
+## Nearest-neighbour (Stepping stone) model
+In the nearest-neighbour model, each individual has a daily probability $r$ of leaving its current patch and whether it leaves or remains $Z_{i,j,t}$ is drawn from a Bernoulli trial. If this trial is successful, the adult moves to adjacent patches denoted by $d_{k}$, either to the left $d_{k}\{-1\}$ or right $d_{k}\{+1\}$ with equal probability $p(d_{k})$. We handle boundaries by ensuring that dispersing adults do not move beyond valid patches (i.e patch 1 to *n*). 
 
 $$
 Z_{i,j,t} \sim \text {Bernoulli} (r)
@@ -185,23 +183,27 @@ $$
 
 # Genetic inheritance 
 
-We assume that loci are arranged linearly along the genome of each individual. For each offspring, gametes were formed by selecting one allele per locus from each parent. Rather than assuming independent segregation, we modelled genetic linkage by generating correlated allele choices. To achieve this, we obtained a distance matrix between pairs of loci based on the Euclidean distances and calculated the variance-covariance matrix, which describes linkage or genetic correlation between loci. Using the variance-covariance matrix, we generated multivariate normal random effects $ε$ values that were transformed to probabilities via a logistic function. These resulting probabilities were then used to conduct Bernoulli trials to determine which allele (from each parent) is inherited by the offspring. Therefore, if $L$ the number of loci, and $\Sigma$ the variance-covariance matrix describing correlations among loci. The multivariate random effect $\epsilon$ is given as:  
+We assume that loci are arranged linearly along the genome of an individual. The gametes for each offspring are formed by selecting one allele per locus from each parent. Rather than assuming independent segregation, we modelled genetic linkage by generating correlated allele choices. To do this, we obtained the distance matrix $Q_{x,y}$ between pairs of loci based on their Euclidean distances and calculated the variance-covariance matrix $\Sigma$ using a covariance decay function. 
+
+$$
+\Sigma = \sigma^2 \exp(−λQ_{x,y})
+$$
+
+where $\sigma^2$ is a scaling factor and $\lambda$ is a decay parameter that controls the covariance between two loci as the genetic distance between them increases. Using $\Sigma$, we then generated multivariate normal random effect values $\epsilon$ that were transformed to probabilities via a logistic function. The resulting probabilities were then used to conduct Bernoulli trials to determine which allele (from each parent) is inherited by the offspring. Thus, if $L$ is the number of loci, and $\Sigma$ the variance-covariance matrix describing correlations among loci, the multivariate random effect $\epsilon$ is given as:  
 
 
 
 $$
-
-\epsilon_i \sim \mathcal{N}_L\left(\mathbf{0}, \Sigma \right)
-
+\epsilon_i \sim \mathcal{N}_L\left(\mu, \Sigma \right)
 $$
 
-where $\epsilon_i = (\epsilon_{i1}, \dots, \epsilon_{iL})$ and $\mathcal{N}_L$ denotes the $L$-variate normal distribution. Thus, the probability $\rho_{i}$ of inheriting an allele in any locus a given parent is derived using the logistic function:
+where $\epsilon_i = (\epsilon_{i1}, \dots, \epsilon_{iL})$ and $\mathcal{N}_L$ denotes the multivariate normal distribution, and $\mu$ is a vector with $L$ dimensional mean of 0. Consequently, the probability $\rho_{i}$ of inheriting an allele in any locus from a given parent using the logistic function becomes, where $\rho_{i}  = (\rho_{il} , \dots,\rho_{iL})$.
 
 $$
 \rho_{i} = \frac{1}{1 + (\exp (-\epsilon_{i}))}
 $$
 
-where $\rho_{i}  = (\rho_{il} , \dots,\rho_{iL})$.
+
 
 
 
