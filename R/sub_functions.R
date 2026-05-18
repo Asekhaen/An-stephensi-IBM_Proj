@@ -1,5 +1,36 @@
 # These functions estimates/calculates parameters that were used in the core functions
 
+#initialise individuals in patches 
+create_n_per_patch <- function(patches, carrying_capacity) {
+  
+  if (patches < 1) {
+    stop("Number of patches must be at least 1.")
+  }
+  if (carrying_capacity < 0) {
+    stop("Carrying capacity must not be < 0")
+  }
+  n_per_patch <- rep(0, patches)
+  n_per_patch[1] <- carrying_capacity
+  return(n_per_patch)
+}
+
+
+sex_alleles <- c("X", "Y")
+
+
+
+# function to make chromosome
+
+make_chromosome <- function(sex_alleles, individual, prefix, n_loci) {
+ 
+   matrix(
+  c(sample(sex_alleles, size = individual, replace = TRUE),
+    paste0(rep(prefix, individual * (n_loci - 1)), rep(1:(n_loci - 1), each = individual))),
+  nrow = individual, ncol = n_loci
+)
+
+}
+
 
 
 # Loci selection matrix: function to place loci at random on the genome (of size = 1)
@@ -55,8 +86,8 @@ rehydrate_lifehistory_function <- function(path_to_object) {
 }
 
 
-aquatic_stage <- "C:/Users/22181916/Documents/Curtin-PhD/R_and_IBM/An-stephensi-IBM_Proj/R/das_temp_dens_As.RDS"
-adult_stage <- "C:/Users/22181916/Documents/Curtin-PhD/R_and_IBM/An-stephensi-IBM_Proj/R/ds_temp_humid.RDS"
+aquatic_stage <- "C:/Users/22181916/Documents/Curtin-PhD/R_and_IBM/phd_codes/stephensi_ibm_proj/R/das_temp_dens_As.RDS"
+adult_stage <- "C:/Users/22181916/Documents/Curtin-PhD/R_and_IBM/phd_codes/stephensi_ibm_proj/R/ds_temp_humid.RDS"
 
 das_temp_dens_As <- rehydrate_lifehistory_function(aquatic_stage)
 ds_temp_humid_As <- rehydrate_lifehistory_function(adult_stage)
@@ -123,9 +154,9 @@ sim_delays <- function(n, temp) {
 
 
 
-#### create dispersal matrix, called in the core dispersal function (metapopulation)  
+#### negative exponential dispersal kernel  
 
-make_dispersal_matrix <- function(coords, lambda, dispersal_prop) {
+metapop <- function(coords, lambda, disp_prob) {
   # dispersal matrix 
   dist_matrix <- as.matrix(dist(coords, method = "euclidean"))
   
@@ -144,9 +175,35 @@ make_dispersal_matrix <- function(coords, lambda, dispersal_prop) {
   
   # normalise these to have the overall probability of dispersing to that patch,
   # and add back the probability of remaining
-  dispersal_matrix <- dispersal_prop * rel_dispersal_matrix +
-    (1 - dispersal_prop) * diag(nrow(dispersal_kernel))
+  dispersal_matrix <- disp_prob * rel_dispersal_matrix +
+    (1 - disp_prob) * diag(nrow(dispersal_kernel))
   
   return(dispersal_matrix)
 }
+
+
+# adjacency matrix 
+
+step_stone <- function(n_patches, disp_prob) {
+  
+  matrix_landscape <- matrix(0, n_patches, n_patches)
+  adjacency <- abs(row(matrix_landscape) - col(matrix_landscape)) == 1
+  adjacency[] <- as.numeric(adjacency)
+
+  # make these rows sum to 1 to get probability of moving to other patch
+  # *if* they left. This dispersal matrix gives the probability of the vector
+  # vector moving between patches
+  rel_dispersal_matrix <- sweep(adjacency, 1,
+                                rowSums(adjacency), FUN = "/")
+
+  # normalise these to have the overall probability of dispersing to that patch,
+  # and add back the probability of remaining
+  dispersal_matrix <- disp_prob * rel_dispersal_matrix +
+    (1 - disp_prob) * diag(nrow(adjacency))
+
+  return(dispersal_matrix)
+}
+
+
+
 

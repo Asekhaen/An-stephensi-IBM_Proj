@@ -2,10 +2,10 @@
 
 # general parameters ----------------------------------------------------------
 
-
+set.seed(123)
 
 # simulation time steps
-sim_days <- 50 
+sim_days <- 200 
 
 #################################################
 # life history parameters
@@ -15,7 +15,11 @@ sim_days <- 50
 patches <- 10     
 
 # Initial number of individuals per patch
-n_per_patch <- c(5000,0,0,0,0,0,0,0,0,0)   
+initial_pop = 100                  # carrying capacity
+carrying_capacity = 10000                  # carrying capacity
+n_per_patch <- create_n_per_patch(patches, initial_pop)   # Initial number of individuals per patch
+sex_alleles <- c("X", "Y") 
+
 
 # the adult male population size at which the daily probability of mating is 
 # 0.5 (North and Godfray, Malar J (2018) 17:140)
@@ -34,7 +38,7 @@ ldt <- c(egg = 8.19,
 # lambda controls the rates at which probability between patches decreases with distances 
 lambda <- 0.1
 
-dispersal_prop <- 0.002
+dispersal_prop <- 0.0001
 
 
 # growth degree day parameters
@@ -71,24 +75,21 @@ sigma_dd <- c(egg = mean_sigma_egg,
 #################################################
 
 
-# number of loci
-n_loci <- 5
 
-# initial frequency of deleterious recessives
-init_frequency = 0.25                   
+cut_rate = 0.75      #cleavage rates: 50 ~ 90% (75) (the others 25% follow  Mendelian inheritance pattern)  
+conv_eff = runif(1, min = 50, max = 95)    #conversion efficiency rates = 50 ~ 95% (75)
+r1_eff = 0.35         #In-frame resistance development rate (restore Mendelian inheritance) = 10% 
+r2_eff = 0.15         #Out-frame resistance dev (fitness is lost and drive can’t cut) = 6%
 
-# Rate at which the drive allele converts the wild-type allele
-conversion_prob <- 0.95       
 
-# prob resistance development or conversion failure
-resistance_prob <- 0.5                   
 
-# effect per homozygous deleterious recessive on fecundity. 0 = no effect on fecundity or batch size. > 0 = 1 additive effect. 
-fecundity_effect <- 0         
 
-#controls the rate at which the covariance between two loci decreases with distance
-decay <- 0.5                            
-
+n_loci <- 5   # number of loci
+init_frequency = 0.25     # initial frequency of deleterious recessives
+conversion_prob <- 0.95    # Rate at which the drive allele converts the wild-type allele
+resistance_prob <- 0.5   # prob resistance development or conversion failure
+fecundity_effect <- 0   # effect per homozygous deleterious recessive on fecundity. 0 = no effect on fecundity or batch size. > 0 = 1 additive effect. 
+decay <- 0.5     #controls the rate at which the covariance between two loci decreases with distance
 l.cov.mat <- place_loci_mat(n_loci, genome.size = 1, var = 1, decay)
 
 
@@ -99,15 +100,18 @@ l.cov.mat <- place_loci_mat(n_loci, genome.size = 1, var = 1, decay)
 # create coordinates and dipersal matrix for the patches/locations 
 
 # random location coordinates
+set.seed(234)
 coords <- as.data.frame(100 * matrix(runif(patches * 2), ncol = 2))
 colnames(coords) <- c("x","y")
-
+plot(coords)
 
 # dispersal matrix
-dispersal_matrix <- make_dispersal_matrix(coords = coords, 
-                                          lambda = lambda, 
-                                          dispersal_prop = dispersal_prop)
+neg_exponet_model <- metapop (coords = coords, 
+                                 lambda = lambda, 
+                                 disp_prob = dispersal_prop)
 
+adjacency_matrix <- step_stone(n_patches = patches, 
+                               disp_prob = dispersal_prop)
 
 # This bit of code generates random daily temperature and humidity to estimates  
 # growth degree-day required for each stage during transition and survival

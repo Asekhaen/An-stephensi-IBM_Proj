@@ -8,17 +8,19 @@
 
 # initialise population
 
-ini_pop <- function(patches, n_per_patch, coords, loci, init_frequency) {
+ini_pop <- function(patches, n_per_patch, coords, n_loci, init_frequency) {
   patches_pop <- list()
   
   for (i in 1:patches) {
     patches_pop[[i]] <- tibble(
-      sex = rbinom(n_per_patch[i], 1, 0.5), # Female == 1, random sex
       stage = sample(c("egg", "larva", "pupa", "adult"), n_per_patch[i], replace = TRUE),
-      allele1 = matrix(rbinom(n = n_per_patch[i] * n_loci, size = 1, prob = init_frequency), ncol = n_loci), # 0 = wild-type, 1 = drive allele
-      allele2 = matrix(rbinom(n = n_per_patch[i] * n_loci, size = 1, prob = init_frequency), ncol = n_loci),
-      male_allele1 = matrix(NA, nrow = n_per_patch[i], ncol = n_loci),
-      male_allele2 = matrix(NA, nrow = n_per_patch[i], ncol = n_loci),
+      # chromosome1 = matrix(rbinom(n = n_per_patch[i] * n_loci, size = 0, prob = init_frequency), ncol = n_loci), # 0 = wild-type, 1 = drive allele
+      # chromosome2 = matrix(rbinom(n = n_per_patch[i] * n_loci, size = 0, prob = init_frequency), ncol = n_loci),
+      chromosome1 = matrix(c(sample(c("X", "Y"), size = 1), paste0("A", 1:(n_loci - 1))), nrow = 1),
+      chromosome2 = matrix(c(sample(c("X", "Y"), size = 1), paste0("a", 1:(n_loci - 1))), nrow = 1),
+      sex = rbinom(n_per_patch[i], 1, 0.5), # Female == 1, random sex
+      male_chromosome1 = matrix(NA, nrow = n_per_patch[i], ncol = n_loci),
+      male_chromosome2 = matrix(NA, nrow = n_per_patch[i], ncol = n_loci),
       gdd_accumulated = 0,
       next_oviposition = 0,
       parity1 = 0,
@@ -40,6 +42,43 @@ ini_pop <- function(patches, n_per_patch, coords, loci, init_frequency) {
 
 
 
+
+
+ini_pop <- function(patches, n_per_patch, coords, n_loci) { 
+  patches_pop <- list()
+  
+  for (i in 1:patches) {
+    patches_pop[[i]] <- tibble(
+      stage = sample(c("egg", "larva", "pupa", "adult"), n_per_patch[i], replace = TRUE),
+      chromosome1 = make_chromosome("X", n_per_patch[i], "A", n_loci),
+      chromosome2 = make_chromosome(sex_alleles, n_per_patch[i], "a", n_loci),
+      male_chromosome1 = matrix(NA, nrow = n_per_patch[i], ncol = n_loci),
+      male_chromosome2 = matrix(NA, nrow = n_per_patch[i], ncol = n_loci),
+      sex = rbinom(n_per_patch[i], 1, 0.5),
+      sex1 <- case_when(chromosome1[,1] == "X" & chromosome2[,2] == "X" ~ "female",
+                        TRUE ~ "male"),
+      gdd_accumulated = 0,
+      next_oviposition = 0,
+      parity1 = 0,
+      parity2 = 0,
+      parity3 = 0,
+      mated = 0,
+      fed = 0,
+      gravid = 0,
+      birth = NA_integer_,
+      first_ovip_day = NA_integer_,
+      alive = TRUE
+    )
+    if (length(n_per_patch) != patches) warning("Initial patch population does not equal specified number of patches")
+  }
+  
+  return(patches_pop)
+}
+
+pop <- ini_pop(patches, n_per_patch, coords, n_loci)
+
+
+
 # Growth, reproduction and genetic/drive inheritance ####
 
 growth <- function(pop_patches, 
@@ -58,7 +97,7 @@ growth <- function(pop_patches,
                    ldt,
                    mu,
                    sigma_dd) {
-    if (sim_days == 35) browser()
+   # if (sim_days == 25) browser()
     updated_pop_patches <- list()
     
     for (i in seq_along(pop_patches)) {
@@ -84,8 +123,8 @@ growth <- function(pop_patches,
         fem$mated[mate_now] <- 1
         selected_male_idx <- sample(n.male, n.mate_now, replace = TRUE)
         selected_male <- male[selected_male_idx,]
-        fem$male_allele1[mate_now,] <- selected_male$allele1
-        fem$male_allele2[mate_now,] <- selected_male$allele2
+        fem$male_chromosome1[mate_now,] <- selected_male$chromosome1
+        fem$male_chromosome2[mate_now,] <- selected_male$chromosome2
         }
       }
       
@@ -118,15 +157,21 @@ growth <- function(pop_patches,
       cond3 <- as.numeric(fem$next_oviposition >= delay & fem$parity2 == 1 & fem$parity3 == 0 & fem$gravid == 1)
 
       # homozygous loci for each female
-      homo_loci <- rowSums((fem$allele1 + fem$allele2) == 2)        
+      # homo_loci <- rowSums((fem$chromosome1 + fem$chromosome2) == 2)        
       
-      # oviposition
+      homo_loci <- rowSums(
+        ((fem$chromosome1 + fem$chromosome2) == 2) |
+          ((fem$male_chromosome1 + fem$male_chromosome2) == 2)
+      )
+      
+      # oviposition (with effect of deleterious allele on fitness: sterility)
+      
       if (sterile) {
         homozygous <- (homo_loci > 0)
-        sterile <- as.numeric(!homozygous)
-        exp_offspring1 <- cond1 * fem$gravid * batch_sizes * sterile
-        exp_offspring2 <- cond2 * fem$gravid * batch_sizes * sterile
-        exp_offspring3 <- cond3 * fem$gravid * batch_sizes * sterile
+        sterility <- as.numeric(!homozygous)
+        exp_offspring1 <- cond1 * fem$gravid * batch_sizes * sterility
+        exp_offspring2 <- cond2 * fem$gravid * batch_sizes * sterility
+        exp_offspring3 <- cond3 * fem$gravid * batch_sizes * sterility
         exp_offspring <- exp_offspring1 + exp_offspring2 + exp_offspring3
       } else {
         exp_offspring1 <- cond1 * fem$gravid * batch_sizes
@@ -150,20 +195,23 @@ growth <- function(pop_patches,
       exp_offspring <- rep(0, n.fem)
     }
     
+    # I changed NA to "zeros" because the operation produced NAs from none mated 
+    # individuals that are still part of the female population 
+    exp_offspring <- replace(exp_offspring, is.na(exp_offspring), 0) 
     
     # Offspring generation: Draw the actual number of offspring from a Poisson distribution
     n_offspring <- rpois(n.fem, exp_offspring)
-    total_offspring <- sum(n_offspring)
+    total_offspring <- sum(n_offspring, na.rm = TRUE)
       
     
       if (total_offspring > 0){  
       # Replicate the parents features `n_offspring` times for each offspring, collect only genetic information
 
-        fem_germline <- fem[rep(1:n.fem, n_offspring), c("allele1", "allele2")]
-        male_germline <- fem[rep(1:n.fem, n_offspring), c("male_allele1", "male_allele2")]
+        fem_germline <- fem[rep(1:n.fem, n_offspring), c("chromosome1", "chromosome2")]
+        male_germline <- fem[rep(1:n.fem, n_offspring), c("male_chromosome1", "male_chromosome2")]
         
         # Genetic inheritance
-        num_loci <- ncol(fem_germline$allele1)
+        num_loci <- ncol(fem_germline$chromosome1)
         stopifnot(num_loci == n_loci)
         
         # # random selection of allele, with linkage 
@@ -202,12 +250,12 @@ growth <- function(pop_patches,
         offspring <- tibble(
           sex = rbinom(total_offspring, 1, 0.5),
           stage = "egg",
-          allele1 = ifelse(which_allele_female,
-                         fem_germline$allele1,
-                         fem_germline$allele2),
-          allele2 = ifelse(which_allele_male,
-                         male_germline$male_allele1,
-                         male_germline$male_allele2),
+          chromosome1 = ifelse(which_allele_female,
+                         fem_germline$chromosome1,
+                         fem_germline$chromosome2),
+          chromosome2 = ifelse(which_allele_male,
+                         male_germline$male_chromosome1,
+                         male_germline$male_chromosome2),
           gdd_accumulated = 0,
           next_oviposition = 0,
           parity1 = 0,
@@ -231,10 +279,10 @@ growth <- function(pop_patches,
       }
       
     
-      # Genetic load: lethal effect
+      # effect of deleterious allele on fitness: lethal effect
       
       if (lethal_effect){
-        homozygous_lethal <- (pop$allele1 == 1) & (pop$allele2 == 1)
+        homozygous_lethal <- (pop$chromosome1 == 1) & (pop$chromosome2 == 1)
         any_homozygous <- rowSums(homozygous_lethal) > 0
         pop <- filter(pop, !any_homozygous)
         #pop <- pop[pop[!any_homozygous], ]
@@ -244,21 +292,21 @@ growth <- function(pop_patches,
     # # Gene Drive architecture (conversion mechanism and inheritance)
     # 
     #     drive_conversion <- function(parent, prob1, prob2) {
-    #       if (any(is.na(parent$allele1)) || any(is.na(parent$allele2))) {
+    #       if (any(is.na(parent$chromosome1)) || any(is.na(parent$chromosome2))) {
     #           warning("NA detected in allele input!")
     #         }
-    #       heterozygous <- (parent$allele1 + parent$allele2) == 1
+    #       heterozygous <- (parent$chromosome1 + parent$chromosome2) == 1
     #       # Drive conversion 95% conversion rate
-    #       converted <- rbinom(length(parent$allele1), 1, prob1) # drive conversion at each locus
+    #       converted <- rbinom(length(parent$chromosome1), 1, prob1) # drive conversion at each locus
     #       conv_event <- converted*heterozygous # conversion event?
-    #       parent$allele1[parent$allele1 == 0 & conv_event == 1] <- 1 # successful conversions
-    #       parent$allele2[parent$allele2 == 0 & conv_event == 1] <- 1
+    #       parent$chromosome1[parent$chromosome1 == 0 & conv_event == 1] <- 1 # successful conversions
+    #       parent$chromosome2[parent$chromosome2 == 0 & conv_event == 1] <- 1
     # 
     #       # Resistance development (0 → 2)
     #       failed_conv <- heterozygous & conv_event == 0
-    #       resistance_event <- rbinom(length(parent$allele1), 1, prob2)
-    #       parent$allele1[parent$allele1 == 0 & failed_conv & resistance_event == 1] <- 2  # Thoughts/To do: individuals that did not develop resistance, yet heterozygous can be can be designated as those with functional resistance and resistant to future Cas9 cutting
-    #       parent$allele2[parent$allele2 == 0 & failed_conv & resistance_event == 1] <- 2
+    #       resistance_event <- rbinom(length(parent$chromosome1), 1, prob2)
+    #       parent$chromosome1[parent$chromosome1 == 0 & failed_conv & resistance_event == 1] <- 2  # Thoughts/To do: individuals that did not develop resistance, yet heterozygous can be can be designated as those with functional resistance and resistant to future Cas9 cutting
+    #       parent$chromosome2[parent$chromosome2 == 0 & failed_conv & resistance_event == 1] <- 2
     # 
     #       return(parent)
     #     }
@@ -339,14 +387,13 @@ growth <- function(pop_patches,
 
 # Dispersal ####
 
-#### Metapopulation dispersal function ####
-  
-  meta_dispersal <- function(pop, dispersal_matrix, check = FALSE) {
+
+  dispersal <- function(pop, dispersal_type, check = FALSE) {
     
-    patch_indices <- dispersed_pop <- vector(mode = "list", length = nrow(dispersal_matrix))
+    patch_indices <- dispersed_pop <- vector(mode = "list", length = nrow(dispersal_type))
     
     # get new patch indices for each adult
-    for (i in 1:length(pop)) {
+    for (i in 1:length(pop)) { #define this first off)
       patch <- pop[[i]]
       
       # adults in the patch capable of dispersing
@@ -357,11 +404,11 @@ growth <- function(pop_patches,
       if (n_dispersal_ready == 0) next
       
       # Get the dispersal probabilities for this individual according to the dispersal matrix
-      dispersal_probs <- dispersal_matrix[i,]
+      dispersal_probs <- dispersal_type[i,]
       dispersers <- which(dispersal_ready)
       new_pop_indices <- sample(1:length(dispersal_probs), size = n_dispersal_ready, replace = TRUE, prob = dispersal_probs)
       patch_indices[[i]] <- tibble(dispersers, new_pop_indices)
-      dispersed_pop[[i]] <- patch[!dispersal_ready, ]
+      dispersed_pop[[i]] <- patch[!dispersal_ready, ] 
     }
     
     # move individuals to new patches
@@ -383,62 +430,6 @@ growth <- function(pop_patches,
   }
 
 
-
-#### Stepping stone dispersal (one-dimensional discrete space) ####
-  
-
-    ss_dispersal <- function(pop_patches, dispersal_prop) {
-      n_patches <- length(pop_patches)
-      dispersed_pop <- vector("list", n_patches)
-      
-      # Initialize empty population for each patch
-      for (i in seq_len(n_patches)) {
-        dispersed_pop[[i]] <- pop_patches[[i]][0, ]
-      }
-      
-      for (i in seq_len(n_patches)) {
-        current_patch <- pop_patches[[i]]
-        
-        if (nrow(current_patch) == 0) next
-        
-        # Split adults and non-adults
-        adults <- current_patch[current_patch$stage == "adult", ]
-        # can_disperse <- rbinom(nrow(current_patch[current_patch$stage == "adult", ]), 1, dispersal_prop)
-        non_adults <- current_patch[current_patch$stage != "adult", ]
-        
-        # Determine which adults disperse
-        ready_to_disperse <- rbinom(nrow(adults), 1, dispersal_prop)
-        dispersing_adults <- adults[ready_to_disperse == 1, ]
-        # dispersing_adults <- current_patch[can_disperse == 1, ]
-        staying_adults <- adults[ready_to_disperse == 0, ]
-        
-        # Disperse adults to i-1 or i+1
-        if (nrow(dispersing_adults) > 0) {
-          directions <- sample(c(-1, 1), nrow(dispersing_adults), replace = TRUE)
-          target_patch <- i + directions
-          target_patch <- pmin(pmax(target_patch, 1), n_patches)  # keep within boundaries i.e. patch 1 and patch "n"
-          
-          for (j in seq_along(target_patch)) {
-            dispersed_pop[[target_patch[j]]] <- bind_rows(
-              dispersed_pop[[target_patch[j]]],
-              dispersing_adults[j, ]
-            )
-          }
-        }
-        
-        # Add stayers (non-dispersing adults and non-adults) to current patch
-        dispersed_pop[[i]] <- bind_rows(
-          dispersed_pop[[i]], 
-          staying_adults,
-          non_adults
-        )
-      }
-      
-      return(dispersed_pop)
-    }
-
-  
-
 # function to run simulation ####
 run_model <- function(patches,
                        n_per_patch, 
@@ -451,8 +442,7 @@ run_model <- function(patches,
                        lethal_effect,
                        sterile,
                        sim_days,
-                       stepping_stone_model,
-                       dispersal_matrix,
+                       dispersal_type,
                        t_max,
                        t_min,
                        humidty,
@@ -464,9 +454,9 @@ run_model <- function(patches,
   pop <- ini_pop(patches, n_per_patch, coords, n_loci, init_frequency)
   
   patch_sizes <- list()
+  #colonisation_rate_list <- list()
   allele_frequency <- list()
-  #spread_rate <- list()
-  #generation_time list()
+  # invasion_speed <- list()
   
   
   for (day in 1:sim_days) {
@@ -491,59 +481,85 @@ run_model <- function(patches,
                   sigma_dd)
     
     # Dispersal
-    if(stepping_stone_model) {
-      pop <- ss_dispersal(pop, dispersal_prop)
-    } else {
-      pop <- meta_dispersal(pop, dispersal_matrix, check = FALSE)
-    }
-    
-    # Track daily population sizes per patch
   
-    patch_sizes[[day]] <- do.call(rbind, lapply(seq_along(pop), function(patch_id) {
-      data.frame(
-        day = day,
-        patch = patch_id,
-        pop_size = nrow(pop[[patch_id]])
-      )
-    }))
-    patch_sizes_df <- do.call(rbind, patch_sizes)
+      pop <- dispersal(pop, dispersal_type, check = FALSE)
     
-    
-    # Track daily allele frequency per patch
+    # Track daily population sizes, patch occupancy rates, etc.
+    patch_sizes[[day]] <- tibble(
+      day = day,
+      patch = seq_along(pop),
+      pop_size = sapply(pop, nrow),
+      patch_occupied = sum(pop_size > 0),
+      unoccupied = length(patch) - patch_occupied,
+      occupancy_rate = patch_occupied/length(patch)
+    )
+    patch_sizes_df <- bind_rows(patch_sizes)
 
-    allele_frequency[[day]] <- do.call(rbind, lapply(seq_along(pop), function(patch_id) {
+    # Track overall allele frequency and allele frequency per locus
+    allele_frequency[[day]] <-  lapply(seq_along(pop), function(patch_id) {
       patch_pop <- pop[[patch_id]]
-      if (nrow(patch_pop) > 0) {
-        deleterious <- sum(patch_pop$allele1 == 1) + sum(patch_pop$allele2 == 1)
-        total <- 2 * nrow(patch_pop) * ncol(patch_pop$allele1)
-        wild_type <- total - deleterious
-        freq <- deleterious / total
-      } else {
-        deleterious <- 0
-        total <- 0
-        wild_type <- 0
-        freq <- 0
-      }
-      data.frame(
-        patch = patch_id,
-        wild = wild_type,
-        lethal = deleterious,
-        total = total,
-        freq = freq,
-        day = day
+      loci_n  <- ncol(patch_pop$chromosome1)  
+      n_ind   <- nrow(patch_pop$chromosome1)  
+      total_allele_overall <- 2 * n_ind * loci_n
+
+      overall <- tibble(
+        day        = day,
+        patch      = patch_id,
+        total      = total_allele_overall,
+        deleterious= sum(patch_pop$chromosome1 == 1) + sum(patch_pop$chromosome2 == 1),
+        wild       = total_allele_overall - deleterious,
+        freq       = ifelse(total_allele_overall == 0, 0, deleterious / total_allele_overall)
       )
-    }
-    ))
-    allele_frequency_df <- do.call(rbind, allele_frequency)
+    })
+      allele_frequency_df <- bind_rows(allele_frequency)
+    
+    # # Track allele frequency for overall allele and per locus.... in progress
+    # allele_frequency[[day]] <-  lapply(seq_along(pop), function(patch_id) {
+    #   patch_pop <- pop[[patch_id]]
+    #   loci_n  <- ncol(patch_pop$chromosome1)  
+    #   n_ind   <- nrow(patch_pop$chromosome1)  
+    #   total_allele_overall <- 2 * n_ind * loci_n
+    #   total_allele_locus <- 2 * n_ind
+    #   
+    #   overall <- tibble(
+    #     day        = day,
+    #     patch      = patch_id,
+    #     total      = total_allele_overall,
+    #     deleterious= sum(patch_pop$chromosome1 == 1) + sum(patch_pop$chromosome2 == 1),
+    #     wild       = total_allele_overall - deleterious,
+    #     freq       = deleterious / total_allele_overall
+    #   )
+    #   
+    #   per_locus <- tibble(
+    #     day        = day,
+    #     patch      = patch_id,
+    #     total      = total_allele_locus,
+    #     loci = seq_len(loci_n),
+    #     deleterious= colSums(patch_pop$chromosome1 == 1) + colSums(patch_pop$chromosome2 == 1),
+    #     wild       = total_allele_locus - deleterious,
+    #     freq       = deleterious / total_allele_locus
+    #   )
+    #     list(per_locus_freq = per_locus, overall_freq = overall)
+    # })
+    # 
+    # overall_df   <- map_dfr(allele_frequency[[day]], "overall_freq")
+    # per_locus_df <- map_dfr(allele_frequency[[day]], "per_locus_freq")
+   
+  
+    # invasion speed <- list()
+    
+
   }
   
-  # track spread or invasion rate
-  
+
   # Return the collected data
   list(
-    patch_sizes = patch_sizes_df,
-    allele_frequency = allele_frequency_df,
-    # spread_rate <-
+    pop_sizes = patch_sizes_df,
+    # patch_colonisation_rate = colonisation_df,
+    allele_freq = allele_frequency_df,
+    # per_locus_output = per_locus_df,
+    # overall_loci = overall_df,
+    # invasion_speed <- invasion_speed_df
     final_pop = pop
   )
 }
