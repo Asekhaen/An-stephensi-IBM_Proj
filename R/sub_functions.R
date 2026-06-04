@@ -15,7 +15,6 @@ create_n_per_patch <- function(patches, carrying_capacity) {
 }
 
 
-sex_alleles <- c("X", "Y")
 
 
 
@@ -31,7 +30,7 @@ make_chromosome <- function(sex_alleles, individual, prefix, n_loci) {
 
 }
 
-
+# make_chromosome("X", 5, "A", 4)
 
 # Loci selection matrix: function to place loci at random on the genome (of size = 1)
 # also takes exponential decay and variance to produce variance-covariance matrix

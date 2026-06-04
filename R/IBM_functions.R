@@ -2,46 +2,7 @@
 
 # core functions to run Anopheles stephensi population dynamics --------
 
-
-
 # Initial population setup ####
-
-# initialise population
-
-ini_pop <- function(patches, n_per_patch, coords, n_loci, init_frequency) {
-  patches_pop <- list()
-  
-  for (i in 1:patches) {
-    patches_pop[[i]] <- tibble(
-      stage = sample(c("egg", "larva", "pupa", "adult"), n_per_patch[i], replace = TRUE),
-      # chromosome1 = matrix(rbinom(n = n_per_patch[i] * n_loci, size = 0, prob = init_frequency), ncol = n_loci), # 0 = wild-type, 1 = drive allele
-      # chromosome2 = matrix(rbinom(n = n_per_patch[i] * n_loci, size = 0, prob = init_frequency), ncol = n_loci),
-      chromosome1 = matrix(c(sample(c("X", "Y"), size = 1), paste0("A", 1:(n_loci - 1))), nrow = 1),
-      chromosome2 = matrix(c(sample(c("X", "Y"), size = 1), paste0("a", 1:(n_loci - 1))), nrow = 1),
-      sex = rbinom(n_per_patch[i], 1, 0.5), # Female == 1, random sex
-      male_chromosome1 = matrix(NA, nrow = n_per_patch[i], ncol = n_loci),
-      male_chromosome2 = matrix(NA, nrow = n_per_patch[i], ncol = n_loci),
-      gdd_accumulated = 0,
-      next_oviposition = 0,
-      parity1 = 0,
-      parity2 = 0,
-      parity3 = 0,
-      mated = 0,
-      fed = 0,
-      gravid = 0,
-      birth = NA_integer_,
-      first_ovip_day = NA_integer_,
-      alive = TRUE
-    )
-    if (length(n_per_patch) != patches) warning("Initial patch population does not equal specified number of patches")
-  }
-  
-  return(patches_pop)
-}
-
-
-
-
 
 
 ini_pop <- function(patches, n_per_patch, coords, n_loci) { 
@@ -50,12 +11,13 @@ ini_pop <- function(patches, n_per_patch, coords, n_loci) {
   for (i in 1:patches) {
     patches_pop[[i]] <- tibble(
       stage = sample(c("egg", "larva", "pupa", "adult"), n_per_patch[i], replace = TRUE),
-      chromosome1 = make_chromosome("X", n_per_patch[i], "A", n_loci),
-      chromosome2 = make_chromosome(sex_alleles, n_per_patch[i], "a", n_loci),
+      # chromosome1 = matrix(rbinom(n = n_per_patch[i] * n_loci, size = 0, prob = init_frequency), ncol = n_loci), # 0 = wild-type, 1 = drive allele
+      # chromosome2 = matrix(rbinom(n = n_per_patch[i] * n_loci, size = 0, prob = init_frequency), ncol = n_loci),
+      chromosome1 = make_chromosome("X", n_per_patch[i], "W", n_loci),
+      chromosome2 = make_chromosome(sex_alleles, n_per_patch[i], "w", n_loci),
       male_chromosome1 = matrix(NA, nrow = n_per_patch[i], ncol = n_loci),
       male_chromosome2 = matrix(NA, nrow = n_per_patch[i], ncol = n_loci),
-      sex = rbinom(n_per_patch[i], 1, 0.5),
-      sex1 <- case_when(chromosome1[,1] == "X" & chromosome2[,2] == "X" ~ "female",
+      sex = case_when(chromosome1[,1] == "X" & chromosome2[,1] == "X" ~ "female",
                         TRUE ~ "male"),
       gdd_accumulated = 0,
       next_oviposition = 0,
@@ -75,7 +37,7 @@ ini_pop <- function(patches, n_per_patch, coords, n_loci) {
   return(patches_pop)
 }
 
-pop <- ini_pop(patches, n_per_patch, coords, n_loci)
+# pop <- ini_pop(patches, n_per_patch, coords, n_loci)
 
 
 
