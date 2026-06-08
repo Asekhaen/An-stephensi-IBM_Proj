@@ -5,3 +5,7 @@
 *.html
 *.pdf
 .positai
+output/
+others/
+*.RDS
+math_allee-effect_IBM.Rmd

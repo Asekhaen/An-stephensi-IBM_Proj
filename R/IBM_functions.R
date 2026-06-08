@@ -10,15 +10,21 @@ ini_pop <- function(patches, n_per_patch, coords, n_loci) {
   
   for (i in 1:patches) {
     patches_pop[[i]] <- tibble(
-      stage = sample(c("egg", "larva", "pupa", "adult"), n_per_patch[i], replace = TRUE),
+      stage = sample(stages, n_per_patch[i], replace = TRUE),
       # chromosome1 = matrix(rbinom(n = n_per_patch[i] * n_loci, size = 0, prob = init_frequency), ncol = n_loci), # 0 = wild-type, 1 = drive allele
       # chromosome2 = matrix(rbinom(n = n_per_patch[i] * n_loci, size = 0, prob = init_frequency), ncol = n_loci),
-      chromosome1 = make_chromosome("X", n_per_patch[i], "W", n_loci),
-      chromosome2 = make_chromosome(sex_alleles, n_per_patch[i], "w", n_loci),
-      male_chromosome1 = matrix(NA, nrow = n_per_patch[i], ncol = n_loci),
-      male_chromosome2 = matrix(NA, nrow = n_per_patch[i], ncol = n_loci),
-      sex = case_when(chromosome1[,1] == "X" & chromosome2[,1] == "X" ~ "female",
-                        TRUE ~ "male"),
+      allo1 = make_allosome("X", n_per_patch[i]),
+      allo2 = make_allosome(c("X", "Y"), n_per_patch[i]),
+      sex = if_else(
+        allo1[,1] == "X" & allo2[,1] == "X",
+        "female",
+        "male"),
+      autosome1 = matrix(0, nrow = n_per_patch[i], ncol = n_loci),    # 0 = wild type, 1 = drive, 2 = resistance
+      autosome2 = matrix(0, nrow =n_per_patch[i], ncol = n_loci),
+      male_allo1 = matrix(NA, nrow = n_per_patch[i], ncol = 2),
+      male_allo2 = matrix(NA, nrow = n_per_patch[i], ncol = 2),
+      male_autosome1 = matrix(NA, nrow = n_per_patch[i], ncol = n_loci),
+      male_autosome2 = matrix(NA, nrow = n_per_patch[i], ncol = n_loci),
       gdd_accumulated = 0,
       next_oviposition = 0,
       parity1 = 0,
@@ -36,8 +42,6 @@ ini_pop <- function(patches, n_per_patch, coords, n_loci) {
   
   return(patches_pop)
 }
-
-# pop <- ini_pop(patches, n_per_patch, coords, n_loci)
 
 
 
@@ -60,13 +64,14 @@ growth <- function(pop_patches,
                    mu,
                    sigma_dd) {
    # if (sim_days == 25) browser()
+    browser()
     updated_pop_patches <- list()
     
     for (i in seq_along(pop_patches)) {
       pop <- pop_patches[[i]]  
       
-      male <- pop[pop$sex == 0 & pop$stage == "adult", ]  # All males
-      fem <- pop[pop$sex == 1 & pop$stage == "adult", ]   # All females
+      male <- pop[pop$sex == "male" & pop$stage == "adult", ]  # All males
+      fem <- pop[pop$sex == "female" & pop$stage == "adult", ]   # All females
       n.fem <- nrow(fem)
       n.male <- nrow(male)
 
@@ -85,12 +90,15 @@ growth <- function(pop_patches,
         fem$mated[mate_now] <- 1
         selected_male_idx <- sample(n.male, n.mate_now, replace = TRUE)
         selected_male <- male[selected_male_idx,]
-        fem$male_chromosome1[mate_now,] <- selected_male$chromosome1
-        fem$male_chromosome2[mate_now,] <- selected_male$chromosome2
+        fem$male_autosome1[mate_now,] <- selected_male$autosome1
+        fem$male_autosome2[mate_now,] <- selected_male$autosome2
+        fem$male_allo1[mate_now,] <- selected_male$allo1
+        fem$male_allo2[mate_now,] <- selected_male$allo2
         }
       }
       
       
+
 # Blood feeding
       non_fed <- which(fem$mated == 1 & fem$fed == 0)
       n.non_fed <- length(non_fed)
@@ -105,32 +113,41 @@ growth <- function(pop_patches,
       fem$next_oviposition[fem$gravid == 1] <- fem$next_oviposition[fem$gravid == 1] + 1
       
      
-       # estimate clutch sizes and oviposition timing using daily average temperature  
-      max_temp <- t_max[i]
-      min_temp <- t_min[i]
+      # estimate egg clutch size and timing of oviposition using daily average temperature  
+      max_temp <- temp_max[i]
+      min_temp <- temp_min[i]
       daily_temp <- (max_temp+min_temp)/2
       
       delay <- sim_delays(n.fem, daily_temp)
       batch_sizes <- sim_batch_sizes(n.fem)
       
-      #### Oviposition conditions 
+      #### Oviposition conditions. This simulates the intervals between when the 
+      #### female becomes gravid and oviposition
       cond1 <- as.numeric(fem$next_oviposition >= delay & fem$parity1 == 0 & fem$gravid == 1)
       cond2 <- as.numeric(fem$next_oviposition >= delay & fem$parity1 == 1 & fem$parity2 == 0 & fem$gravid == 1)
       cond3 <- as.numeric(fem$next_oviposition >= delay & fem$parity2 == 1 & fem$parity3 == 0 & fem$gravid == 1)
 
-      # homozygous loci for each female
-      # homo_loci <- rowSums((fem$chromosome1 + fem$chromosome2) == 2)        
+
       
-      homo_loci <- rowSums(
-        ((fem$chromosome1 + fem$chromosome2) == 2) |
-          ((fem$male_chromosome1 + fem$male_chromosome2) == 2)
-      )
+      # homo_loci <- rowSums(
+      #   (fem$autosome1 + fem$autosome2) == 2)
       
+      
+      wt_homozygous  <- fem$autosome1 == 0 & fem$autosome2 == 0
+      drive_homozygous <- fem$autosome1 == 1 & fem$autosome2 == 1  # sterile
+      res_homozygous <- fem$autosome1 == 2 & fem$autosome2 == 2   # sterile
+      drive_wt <- fem$autosome1 == 0 & fem$autosome2 == 1 | fem$autosome1 == 1 & fem$autosome2 == 0
+      drive_res <- fem$autosome1 == 1 & fem$autosome2 == 2 | fem$autosome1 == 2 & fem$autosome2 == 1   # sterile
+      res_wt <- fem$autosome1 == 0 & fem$autosome2 == 2 | fem$autosome1 == 2 & fem$autosome2 == 0
+      
+      disrupted_loci <- drive_homozygous + res_homozygous + drive_res
+
+
       # oviposition (with effect of deleterious allele on fitness: sterility)
       
       if (sterile) {
-        homozygous <- (homo_loci > 0)
-        sterility <- as.numeric(!homozygous)
+        sterile_loci <- (disrupted_loci > 0)
+        sterility <- as.integer(rowSums(sterile_loci) != ncol(sterile_loci))
         exp_offspring1 <- cond1 * fem$gravid * batch_sizes * sterility
         exp_offspring2 <- cond2 * fem$gravid * batch_sizes * sterility
         exp_offspring3 <- cond3 * fem$gravid * batch_sizes * sterility
@@ -153,7 +170,7 @@ growth <- function(pop_patches,
       fem$gravid[oviposited] <- 0
       
     }   else {
-      # If not, set clutch size to 0
+      # If not, set clutch size to 0. i.e no offspring
       exp_offspring <- rep(0, n.fem)
     }
     
@@ -169,24 +186,29 @@ growth <- function(pop_patches,
       if (total_offspring > 0){  
       # Replicate the parents features `n_offspring` times for each offspring, collect only genetic information
 
-        fem_germline <- fem[rep(1:n.fem, n_offspring), c("chromosome1", "chromosome2")]
-        male_germline <- fem[rep(1:n.fem, n_offspring), c("male_chromosome1", "male_chromosome2")]
+        fem_germline <- fem[rep(1:n.fem, n_offspring), c("autosome1", "autosome2")]
+        male_germline <- fem[rep(1:n.fem, n_offspring), c("male_autosome1", "male_autosome2")]
+        
+        fem_allo <- fem[rep(1:n.fem, n_offspring), c("allo1", "allo2")]
+        male_allo <- fem[rep(1:n.fem, n_offspring), c("male_allo1", "male_allo2")]
+        
+        
         
         # Genetic inheritance
-        num_loci <- ncol(fem_germline$chromosome1)
+        num_loci <- ncol(fem_germline$autosome1)
         stopifnot(num_loci == n_loci)
         
-        # # random selection of allele, with linkage 
+        # # random selection for linked loci 
         
-        which_allele_fn <- function(n_offspring, num_loci, loci_cov_matrix){
-          epsilon <- MASS::mvrnorm(n_offspring, rep(0, num_loci), Sigma = loci_cov_matrix)
-          selection_prob <- plogis(epsilon)
-          matrix(rbinom(n_offspring * num_loci, 1, selection_prob) == 1,
-                 nrow = n_offspring,
-                 ncol = num_loci)
-        }
+        # which_allele_fn <- function(n_offspring, num_loci, loci_cov_matrix){
+        #   epsilon <- MASS::mvrnorm(n_offspring, rep(0, num_loci), Sigma = loci_cov_matrix)
+        #   selection_prob <- plogis(epsilon)
+        #   matrix(rbinom(n_offspring * num_loci, 1, selection_prob) == 1,
+        #          nrow = n_offspring,
+        #          ncol = num_loci)
+        # }
         
-        # alternative  fucbtion for computational speed
+        # alternative  function for computational speed
         # 
         # which_allele_fn <- function(n_ind, n_loci, loci_cov_matrix) {
         #   epsilon <- MASS::mvrnorm(n = n_ind,
@@ -205,19 +227,21 @@ growth <- function(pop_patches,
         #   u < selection_prob
         # }
     
-        which_allele_female <- which_allele_fn(total_offspring, num_loci, loci_cov_matrix) # female gametes
-        which_allele_male <- which_allele_fn(total_offspring, num_loci, loci_cov_matrix) # male gametes
+        # which_allele_female <- which_allele_fn(total_offspring, num_loci, loci_cov_matrix) # female gametes
+        # which_allele_male <- which_allele_fn(total_offspring, num_loci, loci_cov_matrix) # male gametes
       
         #  Determination of offspring features
         offspring <- tibble(
-          sex = rbinom(total_offspring, 1, 0.5),
           stage = "egg",
-          chromosome1 = ifelse(which_allele_female,
-                         fem_germline$chromosome1,
-                         fem_germline$chromosome2),
-          chromosome2 = ifelse(which_allele_male,
-                         male_germline$male_chromosome1,
-                         male_germline$male_chromosome2),
+          allo1 = if (rbinom(1, 1, 0.5) == 1) fem_allo$allo1, fem_allo$allo2,
+          allo1 = if (rbinom(1, 1, 0.5) == 1) male_allo$male_allo1, male_allo$male_allo2,
+          sex = ifelse(allo1[,1] == "X" & allo2[,1] == "X", "female", "male"),
+          autosome1 =  if (rbinom(1, 1, 0.5) == 1) fem_germline$autosome1 else fem_germline$autosome2,
+          autosome2 =  if (rbinom(1, 1, 0.5) == 1) male_germline$autosome1 else male_germline$autosome2,
+          male_autosome1 = matrix(NA, ncol = n_loci),
+          male_autosome2 = matrix(NA, ncol = n_loci),
+          male_allo1 = matrix(NA, ncol = n_loci),
+          male_allo2 = matrix(NA, ncol = n_loci),
           gdd_accumulated = 0,
           next_oviposition = 0,
           parity1 = 0,
@@ -231,20 +255,20 @@ growth <- function(pop_patches,
           alive = TRUE
         )
       
+
         # Update pop with offspring & fem population
-        pop <- pop[!(pop$sex == 1 & pop$stage == "adult"), ]
+        pop <- pop[!(pop$sex == "female" & pop$stage == "adult"), ]
         pop <- bind_rows(pop, offspring, fem)
       } else {
         # Update pop with females only
-        pop <- pop[!(pop$sex == 1 & pop$stage == "adult"), ]
+        pop <- pop[!(pop$sex == "female" & pop$stage == "adult"), ]
         pop <- bind_rows(pop, fem)
       }
       
-    
       # effect of deleterious allele on fitness: lethal effect
       
       if (lethal_effect){
-        homozygous_lethal <- (pop$chromosome1 == 1) & (pop$chromosome2 == 1)
+        homozygous_lethal <- (pop$autosome1 == 1) & (pop$autosome2 == 1)
         any_homozygous <- rowSums(homozygous_lethal) > 0
         pop <- filter(pop, !any_homozygous)
         #pop <- pop[pop[!any_homozygous], ]
@@ -413,7 +437,7 @@ run_model <- function(patches,
                        mu,
                        sigma_dd) {
   
-  pop <- ini_pop(patches, n_per_patch, coords, n_loci, init_frequency)
+  pop <- ini_pop(patches, n_per_patch, coords, n_loci)
   
   patch_sizes <- list()
   #colonisation_rate_list <- list()

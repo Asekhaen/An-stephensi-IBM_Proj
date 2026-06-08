@@ -11,9 +11,10 @@ library(truncnorm)
 set.seed(20250711)
 
 # Source functions and parameters 
-source("R/sub_functions.R")
-source("R/IBM_functions.R")
-source("R/parameters.R")
+source("R/dependencies.R")
+
+# pop <- ini_pop(patches, n_per_patch, coords, n_loci)
+
 
 
 # plot(coords, cex = 4)
@@ -28,12 +29,12 @@ output <- run_model (patches = patches,
                      n_per_patch = n_per_patch,
                      coords = coords,
                      n_loci = n_loci,
-                     init_frequency = init_frequency,
+                     #init_frequency = init_frequency,
                      bloodmeal_prob = bloodmeal_prob,
                      beta = beta,
                      decay = decay,
                      lethal_effect = FALSE,
-                     sterile = TRUE,
+                     sterile = FALSE,
                      sim_days = sim_days,
                      dispersal_type = adjacency_matrix,
                      t_max,

@@ -15,10 +15,11 @@ sim_days <- 200
 patches <- 10     
 
 # Initial number of individuals per patch
-initial_pop = 100                  # carrying capacity
+initial_pop = 3000                  # carrying capacity
 carrying_capacity = 10000                  # carrying capacity
 n_per_patch <- create_n_per_patch(patches, initial_pop)   # Initial number of individuals per patch
 sex_alleles <- c("X", "Y") 
+stages <- c("egg", "larva", "pupa", "adult")
 
 
 # the adult male population size at which the daily probability of mating is 
@@ -115,12 +116,12 @@ adjacency_matrix <- step_stone(n_patches = patches,
 
 # This bit of code generates random daily temperature and humidity to estimates  
 # growth degree-day required for each stage during transition and survival
-t_max  <-  matrix(rnorm(patches * sim_days, 
-                       mean = 30, sd = 5), 
-                       nrow = sim_days, ncol = patches)  
+temp_max  <-  matrix(runif(patches * sim_days, 
+                        min = 28, max = 38), 
+                  nrow = sim_days, ncol = patches) 
 
-t_min <-  matrix(rnorm(patches * sim_days, 
-                       mean = 28, sd = 3), 
+temp_min <-  matrix(runif(patches * sim_days, 
+                       min = 19, max = 25), 
                  nrow = sim_days, ncol = patches)
 
 humidity <- matrix(rtruncnorm(patches * sim_days, a = 0, b = 100,

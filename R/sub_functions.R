@@ -1,4 +1,16 @@
-# These functions estimates/calculates parameters that were used in the core functions
+
+
+# function to load required packages 
+
+load_libraries <- function(pack) {
+  for (p in pack) {
+    if (!requireNamespace(p, quietly = TRUE)) {
+      install.packages(p)
+    }
+    library(p, character.only = TRUE)
+  }
+}
+
 
 #initialise individuals in patches 
 create_n_per_patch <- function(patches, carrying_capacity) {
@@ -18,19 +30,40 @@ create_n_per_patch <- function(patches, carrying_capacity) {
 
 
 
-# function to make chromosome
+# # function to make autosome
+# 
+# make_autosome <- function(individual, prefix, n_loci) {
+#  
+#    matrix(
+#   c(paste0(rep(prefix, individual * (n_loci)), rep(1:(n_loci), each = individual))),
+#   nrow = individual, ncol = n_loci
+# )
+# 
+# }
+# 
+# #make_autosome(5, "A", 5)
 
-make_chromosome <- function(sex_alleles, individual, prefix, n_loci) {
- 
-   matrix(
-  c(sample(sex_alleles, size = individual, replace = TRUE),
-    paste0(rep(prefix, individual * (n_loci - 1)), rep(1:(n_loci - 1), each = individual))),
-  nrow = individual, ncol = n_loci
-)
 
+
+# function to make allosome (sex chromosome)
+
+# make_allosome <- function(sex_alleles, individual) {
+#   
+#   matrix(
+#     c(sample(sex_alleles, size = individual, replace = TRUE)),
+#   )
+#   
+# }
+
+
+make_allosome <- function(sex_alleles, individual) {
+  
+  cbind(
+    sample(sex_alleles, size = individual, replace = TRUE),
+    rep(0L, individual)
+  )
 }
-
-# make_chromosome("X", 5, "A", 4)
+  
 
 # Loci selection matrix: function to place loci at random on the genome (of size = 1)
 # also takes exponential decay and variance to produce variance-covariance matrix
