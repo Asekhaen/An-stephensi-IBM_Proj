@@ -5,7 +5,7 @@
 set.seed(123)
 
 # simulation time steps
-sim_days <- 200 
+sim_days <- 50 
 
 #################################################
 # life history parameters
@@ -39,7 +39,7 @@ ldt <- c(egg = 8.19,
 # lambda controls the rates at which probability between patches decreases with distances 
 lambda <- 0.1
 
-dispersal_prop <- 0.0001
+dispersal_prop <- 0.01
 
 
 # growth degree day parameters

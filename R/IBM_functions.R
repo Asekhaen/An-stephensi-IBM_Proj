@@ -21,8 +21,8 @@ ini_pop <- function(patches, n_per_patch, coords, n_loci) {
         "male"),
       autosome1 = matrix(0, nrow = n_per_patch[i], ncol = n_loci),    # 0 = wild type, 1 = drive, 2 = resistance
       autosome2 = matrix(0, nrow =n_per_patch[i], ncol = n_loci),
-      male_allo1 = matrix(NA, nrow = n_per_patch[i], ncol = 2),
-      male_allo2 = matrix(NA, nrow = n_per_patch[i], ncol = 2),
+      male_allo1 = matrix(NA_character_, nrow = n_per_patch[i], ncol = 2),
+      male_allo2 = matrix(NA_character_, nrow = n_per_patch[i], ncol = 2),
       male_autosome1 = matrix(NA, nrow = n_per_patch[i], ncol = n_loci),
       male_autosome2 = matrix(NA, nrow = n_per_patch[i], ncol = n_loci),
       gdd_accumulated = 0,
@@ -63,8 +63,8 @@ growth <- function(pop_patches,
                    ldt,
                    mu,
                    sigma_dd) {
-   # if (sim_days == 25) browser()
-    browser()
+     # if (sim_days == 3) browser()
+     #browser()
     updated_pop_patches <- list()
     
     for (i in seq_along(pop_patches)) {
@@ -230,18 +230,41 @@ growth <- function(pop_patches,
         # which_allele_female <- which_allele_fn(total_offspring, num_loci, loci_cov_matrix) # female gametes
         # which_allele_male <- which_allele_fn(total_offspring, num_loci, loci_cov_matrix) # male gametes
       
+        
+        
+        which_autosome  <- matrix(rep(rbinom(total_offspring, 1, 0.5), n_loci),
+                                    nrow = total_offspring, ncol = n_loci)
+        which_autosome_mate <- matrix(rep(rbinom(total_offspring, 1, 0.5), n_loci),
+                                    nrow = total_offspring, ncol = n_loci)
+        
+        
+        
+        which_allosome  <- matrix(rep(rbinom(total_offspring, 1, 0.5), 2),
+                                  nrow = total_offspring, ncol = 2)
+        which_allosome_mate <- matrix(rep(rbinom(total_offspring, 1, 0.5), 2),
+                                      nrow = total_offspring, ncol = 2)
+        
+        
         #  Determination of offspring features
         offspring <- tibble(
           stage = "egg",
-          allo1 = if (rbinom(1, 1, 0.5) == 1) fem_allo$allo1, fem_allo$allo2,
-          allo1 = if (rbinom(1, 1, 0.5) == 1) male_allo$male_allo1, male_allo$male_allo2,
+          allo1 = ifelse(which_allosome,
+                         fem_allo$allo1,
+                         fem_allo$allo2),           #if (rbinom(1, 1, 0.5) == 1) fem_allo$allo1 else fem_allo$allo2,
+          allo2 = ifelse(which_allosome_mate,
+                         male_allo$male_allo1,
+                         male_allo$male_allo2),     #if (rbinom(1, 1, 0.5) == 1) male_allo$male_allo1 else male_allo$male_allo2,
           sex = ifelse(allo1[,1] == "X" & allo2[,1] == "X", "female", "male"),
-          autosome1 =  if (rbinom(1, 1, 0.5) == 1) fem_germline$autosome1 else fem_germline$autosome2,
-          autosome2 =  if (rbinom(1, 1, 0.5) == 1) male_germline$autosome1 else male_germline$autosome2,
+          autosome1 = ifelse(which_autosome,
+                             fem_germline$autosome1,
+                             fem_germline$autosome2), #if (rbinom(1, 1, 0.5) == 1) fem_germline$autosome1 else fem_germline$autosome2,
+          autosome2 =  ifelse(which_autosome_mate,
+                              male_germline$male_autosome1,
+                              male_germline$male_autosome2),#if (rbinom(1, 1, 0.5) == 1) male_germline$male_autosome1 else male_germline$male_autosome2,
           male_autosome1 = matrix(NA, ncol = n_loci),
           male_autosome2 = matrix(NA, ncol = n_loci),
-          male_allo1 = matrix(NA, ncol = n_loci),
-          male_allo2 = matrix(NA, ncol = n_loci),
+          male_allo1 = matrix(NA_character_, ncol = 2),
+          male_allo2 = matrix(NA_character_, ncol = 2),
           gdd_accumulated = 0,
           next_oviposition = 0,
           parity1 = 0,
@@ -255,25 +278,26 @@ growth <- function(pop_patches,
           alive = TRUE
         )
       
+      
 
         # Update pop with offspring & fem population
         pop <- pop[!(pop$sex == "female" & pop$stage == "adult"), ]
         pop <- bind_rows(pop, offspring, fem)
       } else {
-        # Update pop with females only
+        # Update pop with females only if no oviposition happened 
         pop <- pop[!(pop$sex == "female" & pop$stage == "adult"), ]
         pop <- bind_rows(pop, fem)
       }
       
-      # effect of deleterious allele on fitness: lethal effect
-      
-      if (lethal_effect){
-        homozygous_lethal <- (pop$autosome1 == 1) & (pop$autosome2 == 1)
-        any_homozygous <- rowSums(homozygous_lethal) > 0
-        pop <- filter(pop, !any_homozygous)
-        #pop <- pop[pop[!any_homozygous], ]
-      }
-      
+      # # effect of deleterious allele on fitness: lethal effect
+      # 
+      # if (lethal_effect){
+      #   homozygous_lethal <- (pop$autosome1 == 1) & (pop$autosome2 == 1)
+      #   any_homozygous <- rowSums(homozygous_lethal) > 0
+      #   pop <- filter(pop, !any_homozygous)
+      #   #pop <- pop[pop[!any_homozygous], ]
+      # }
+      # 
       
     # # Gene Drive architecture (conversion mechanism and inheritance)
     # 
@@ -481,29 +505,31 @@ run_model <- function(patches,
     )
     patch_sizes_df <- bind_rows(patch_sizes)
 
-    # Track overall allele frequency and allele frequency per locus
-    allele_frequency[[day]] <-  lapply(seq_along(pop), function(patch_id) {
-      patch_pop <- pop[[patch_id]]
-      loci_n  <- ncol(patch_pop$chromosome1)  
-      n_ind   <- nrow(patch_pop$chromosome1)  
-      total_allele_overall <- 2 * n_ind * loci_n
-
-      overall <- tibble(
-        day        = day,
-        patch      = patch_id,
-        total      = total_allele_overall,
-        deleterious= sum(patch_pop$chromosome1 == 1) + sum(patch_pop$chromosome2 == 1),
-        wild       = total_allele_overall - deleterious,
-        freq       = ifelse(total_allele_overall == 0, 0, deleterious / total_allele_overall)
-      )
-    })
-      allele_frequency_df <- bind_rows(allele_frequency)
+    # # Track overall allele frequency and allele frequency per locus
+    # allele_frequency[[day]] <-  lapply(seq_along(pop), function(patch_id) {
+    #   patch_pop <- pop[[patch_id]]
+    #   loci_n  <- ncol(patch_pop$autosome1)  
+    #   n_ind   <- nrow(patch_pop$autosome1)  
+    #   total_allele_overall <- 2 * n_ind * loci_n
+    # 
+    #   overall <- tibble(
+    #     day        = day,
+    #     patch      = patch_id,
+    #     total      = total_allele_overall,
+    #     deleterious= sum(patch_pop$autosome1 == 1) + sum(patch_pop$autosome2 == 1),
+    #     wild       = total_allele_overall - deleterious,
+    #     freq       = ifelse(total_allele_overall == 0, 0, deleterious / total_allele_overall)
+    #   )
+    # })
+    #   allele_frequency_df <- bind_rows(allele_frequency)
+    
+    
     
     # # Track allele frequency for overall allele and per locus.... in progress
     # allele_frequency[[day]] <-  lapply(seq_along(pop), function(patch_id) {
     #   patch_pop <- pop[[patch_id]]
-    #   loci_n  <- ncol(patch_pop$chromosome1)  
-    #   n_ind   <- nrow(patch_pop$chromosome1)  
+    #   loci_n  <- ncol(patch_pop$autosome1)  
+    #   n_ind   <- nrow(patch_pop$autosome1)  
     #   total_allele_overall <- 2 * n_ind * loci_n
     #   total_allele_locus <- 2 * n_ind
     #   
@@ -511,7 +537,7 @@ run_model <- function(patches,
     #     day        = day,
     #     patch      = patch_id,
     #     total      = total_allele_overall,
-    #     deleterious= sum(patch_pop$chromosome1 == 1) + sum(patch_pop$chromosome2 == 1),
+    #     deleterious= sum(patch_pop$autosome1 == 1) + sum(patch_pop$autosome2 == 1),
     #     wild       = total_allele_overall - deleterious,
     #     freq       = deleterious / total_allele_overall
     #   )
@@ -521,7 +547,7 @@ run_model <- function(patches,
     #     patch      = patch_id,
     #     total      = total_allele_locus,
     #     loci = seq_len(loci_n),
-    #     deleterious= colSums(patch_pop$chromosome1 == 1) + colSums(patch_pop$chromosome2 == 1),
+    #     deleterious= colSums(patch_pop$autosome1 == 1) + colSums(patch_pop$autosome2 == 1),
     #     wild       = total_allele_locus - deleterious,
     #     freq       = deleterious / total_allele_locus
     #   )
@@ -542,7 +568,7 @@ run_model <- function(patches,
   list(
     pop_sizes = patch_sizes_df,
     # patch_colonisation_rate = colonisation_df,
-    allele_freq = allele_frequency_df,
+    # allele_freq = allele_frequency_df,
     # per_locus_output = per_locus_df,
     # overall_loci = overall_df,
     # invasion_speed <- invasion_speed_df

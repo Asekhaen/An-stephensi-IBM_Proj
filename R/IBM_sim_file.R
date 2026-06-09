@@ -1,8 +1,4 @@
 # install and load the following packages if needed
-library(tidyverse)
-library(purrr)
-library(truncnorm)
-
 
 ###########################################
 #               PARAMETERS                #
