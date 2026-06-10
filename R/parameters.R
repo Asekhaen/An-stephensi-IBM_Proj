@@ -5,7 +5,7 @@
 set.seed(123)
 
 # simulation time steps
-sim_days <- 50 
+sim_days <- 20 
 
 #################################################
 # life history parameters
@@ -85,9 +85,11 @@ r2_eff = 0.15         #Out-frame resistance dev (fitness is lost and drive canâ€
 
 
 
-n_loci <- 5   # number of loci
+n_loci <- 2   # number of loci
 init_frequency = 0.25     # initial frequency of deleterious recessives
-conversion_prob <- 0.95    # Rate at which the drive allele converts the wild-type allele
+cleavage = 0.95     # gene cleavage probability 
+homing_rate =  0.95
+conversion_prob <- cleavage * homing_rate    # Rate at which the drive allele converts the wild-type allele
 resistance_prob <- 0.5   # prob resistance development or conversion failure
 fecundity_effect <- 0   # effect per homozygous deleterious recessive on fecundity. 0 = no effect on fecundity or batch size. > 0 = 1 additive effect. 
 decay <- 0.5     #controls the rate at which the covariance between two loci decreases with distance

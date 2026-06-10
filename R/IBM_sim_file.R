@@ -30,7 +30,7 @@ output <- run_model (patches = patches,
                      beta = beta,
                      decay = decay,
                      lethal_effect = FALSE,
-                     sterile = FALSE,
+                     drive_type = "homing",  # using "homing", "toxin_antidote", "yle". Default is Mendelian
                      sim_days = sim_days,
                      dispersal_type = adjacency_matrix,
                      t_max,

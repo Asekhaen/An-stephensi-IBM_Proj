@@ -239,3 +239,46 @@ step_stone <- function(n_patches, disp_prob) {
 
 
 
+
+
+#Homing gene drive function (conversion mechanism)
+
+home_drive_conv <- function(parent, prob1, prob2) {
+  # browser()
+  
+  loci1 <- parent$autosome1 
+  loci2 <- parent$autosome2
+  
+  # if (any(is.na(loci1)) | any(loci2)) {
+  #     warning("NA detected in allele input!")
+  # }
+  
+  drive_wt <- ((loci1 == 0) & (loci2 == 1)) | ((loci1 == 1) & (loci2 == 0))
+  
+  #cleavage
+  cleavage  <- matrix(rbinom(nrow(loci1), 1, prob1), ncol(loci1), # drive cleavage at each locus
+                      nrow = nrow(loci1), ncol = ncol(loci1))
+  # homing
+  homing  <- matrix(rbinom(nrow(loci1), 1, prob2), ncol(loci1), # drive conversion at each locus
+                    nrow = nrow(loci1), ncol = ncol(loci1)) 
+  
+  conv_event <- homing*cleavage # conversion event?
+  conv_heterozygous <- conv_event*drive_wt  #This is where the trick is....
+  
+  #successful homing (0 to 1 )
+  loci1[loci1 == 0 & conv_event == 1 & conv_heterozygous == 1] <- 1 # successful conversions
+  loci2[loci2 == 0 & conv_event == 1 & conv_heterozygous == 1] <- 1
+  
+  # Resistance development if homing fails (0 to 2)
+  # failed_conv <- drive_wt & conv_event == 0
+  # resistance_event <- rbinom(length(parent$chromosome1), 1, prob2)
+  loci1[loci1 == 0 & cleavage == 1 & conv_event == 0 & conv_heterozygous == 0] <- 2  #Thoughts/To do: individuals that did not develop resistance, yet heterozygous can be can be designated as those with functional resistance and resistant to future Cas9 cutting
+  loci2[loci2 == 0 & cleavage == 1 & conv_event == 0 & conv_heterozygous == 0] <- 2
+  
+  parent$autosome1  <- loci1
+  parent$autosome2  <- loci2
+  
+  return(parent)
+}
+
+
