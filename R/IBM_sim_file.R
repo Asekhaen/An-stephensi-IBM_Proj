@@ -4,13 +4,12 @@
 #               PARAMETERS                #
 ###########################################
 
-set.seed(20250711)
+set.seed(202)
 
 # Source functions and parameters 
 source("R/dependencies.R")
 
-# pop <- ini_pop(patches, n_per_patch, coords, n_loci)
-
+# pop <- ini_pop(patches, n_per_patch, coords, n_loci, release_freq)
 
 
 # plot(coords, cex = 4)
@@ -25,16 +24,21 @@ output <- run_model (patches = patches,
                      n_per_patch = n_per_patch,
                      coords = coords,
                      n_loci = n_loci,
-                     #init_frequency = init_frequency,
+                     stages = stages,
+                     release_freq = release_freq,
                      bloodmeal_prob = bloodmeal_prob,
                      beta = beta,
                      decay = decay,
+                     recomb = FALSE,
                      lethal_effect = FALSE,
-                     drive_type = "homing",  # using "homing", "toxin_antidote", "yle". Default is Mendelian
+                     sterile = TRUE,
+                     drive_type = "homing",  # chose "homing", "toxin_antidote", or "yle". Default is Mendelian
+                     prob1 = cut_rate,
+                     prob2 = homing_rate,
                      sim_days = sim_days,
-                     dispersal_type = adjacency_matrix,
-                     t_max,
-                     t_min,
+                     dispersal_type = adjacency_matrix,  #neg_exponet_model or adjacency matix
+                     t_max = temp_max,
+                     t_min = temp_min,
                      sigma,
                      surface_area = s_area,
                      ldt = ldt,

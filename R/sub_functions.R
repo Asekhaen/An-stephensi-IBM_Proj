@@ -13,16 +13,16 @@ load_libraries <- function(pack) {
 
 
 #initialise individuals in patches 
-create_n_per_patch <- function(patches, carrying_capacity) {
+create_n_per_patch <- function(patches, n_individual) {
   
   if (patches < 1) {
     stop("Number of patches must be at least 1.")
   }
-  if (carrying_capacity < 0) {
+  if (n_individual < 0) {
     stop("Carrying capacity must not be < 0")
   }
   n_per_patch <- rep(0, patches)
-  n_per_patch[1] <- carrying_capacity
+  n_per_patch[1] <- n_individual
   return(n_per_patch)
 }
 
@@ -65,7 +65,10 @@ make_allosome <- function(sex_alleles, individual) {
 }
   
 
-# Loci selection matrix: function to place loci at random on the genome (of size = 1)
+
+# correlated allele selection (recombination) 
+
+# Loci selection matrix: function to randomly assign position to all loci on the genome (of size = 1)
 # also takes exponential decay and variance to produce variance-covariance matrix
 
 place_loci_mat <- function(loci, genome.size = 1, var = 1, decay){
@@ -74,6 +77,37 @@ place_loci_mat <- function(loci, genome.size = 1, var = 1, decay){
   loci_cov_matrix <- var*exp(-decay*loci_dist_matrix)
   return(loci_cov_matrix)
 }
+
+
+# function to generate random multivariate normal effect values and transform them to probabilities
+which_allele_fn <- function(exp_offspring, num_loci, loci_cov_matrix){
+  epsilon <- MASS::mvrnorm(exp_offspring, rep(0, num_loci), Sigma = loci_cov_matrix)
+  selection_prob <- plogis(epsilon)
+  matrix(rbinom(exp_offspring * num_loci, 1, selection_prob) == 1,
+         nrow = exp_offspring,
+         ncol = num_loci)
+}
+
+
+# alternative  function maybe faster (computational speed)
+# 
+# which_allele_fn <- function(n_ind, n_loci, loci_cov_matrix) {
+#   epsilon <- MASS::mvrnorm(n = n_ind,
+#                            mu = rep(0, n_loci),
+#                            Sigma = loci_cov_matrix)
+#   
+#   # alternatively, pass in 'L_loci_cov_matrix', which is computed earlier as:
+#   #   L_loci_cov_matrix <- chol(loci_cov_matrix)
+#   # then inside this function do:
+#   #   z <- matrix(rnorm(n_ind * n_loci), n_ind, n_loci)
+#   #   epsilon <- z %*% L
+#   
+#   selection_prob <- 1 / (1 + exp(-epsilon))
+#   u <- matrix(runif(n_ind * n_loci),
+#               n_ind, n_loci)
+#   u < selection_prob
+# }
+
 
 
 # growth degree day estimation (Abbasi et al., Environmental Entomology, 2023, Vol. 52, No. 6)
@@ -243,17 +277,21 @@ step_stone <- function(n_patches, disp_prob) {
 
 #Homing gene drive function (conversion mechanism)
 
-home_drive_conv <- function(parent, prob1, prob2) {
+home_drive_conv <- function(parent, chrom1, chrom2, prob1, prob2) {
   # browser()
   
-  loci1 <- parent$autosome1 
-  loci2 <- parent$autosome2
+  loci1 <- parent[[chrom1]] 
+  loci2 <- parent[[chrom2]] 
   
   # if (any(is.na(loci1)) | any(loci2)) {
   #     warning("NA detected in allele input!")
   # }
   
+  
   drive_wt <- ((loci1 == 0) & (loci2 == 1)) | ((loci1 == 1) & (loci2 == 0))
+  
+  drive_wt <- 1 * drive_wt  # convert logical to numeric
+  
   
   #cleavage
   cleavage  <- matrix(rbinom(nrow(loci1), 1, prob1), ncol(loci1), # drive cleavage at each locus
@@ -261,24 +299,24 @@ home_drive_conv <- function(parent, prob1, prob2) {
   # homing
   homing  <- matrix(rbinom(nrow(loci1), 1, prob2), ncol(loci1), # drive conversion at each locus
                     nrow = nrow(loci1), ncol = ncol(loci1)) 
-  
   conv_event <- homing*cleavage # conversion event?
-  conv_heterozygous <- conv_event*drive_wt  #This is where the trick is....
   
-  #successful homing (0 to 1 )
-  loci1[loci1 == 0 & conv_event == 1 & conv_heterozygous == 1] <- 1 # successful conversions
-  loci2[loci2 == 0 & conv_event == 1 & conv_heterozygous == 1] <- 1
+  loci1[loci1 == 0 & conv_event == 1 & drive_wt == 1] <- 1 # successful conversions
+  loci2[loci2 == 0 & conv_event == 1 & drive_wt == 1] <- 1
+  
+  
   
   # Resistance development if homing fails (0 to 2)
-  # failed_conv <- drive_wt & conv_event == 0
-  # resistance_event <- rbinom(length(parent$chromosome1), 1, prob2)
-  loci1[loci1 == 0 & cleavage == 1 & conv_event == 0 & conv_heterozygous == 0] <- 2  #Thoughts/To do: individuals that did not develop resistance, yet heterozygous can be can be designated as those with functional resistance and resistant to future Cas9 cutting
-  loci2[loci2 == 0 & cleavage == 1 & conv_event == 0 & conv_heterozygous == 0] <- 2
+  resist_dev  <- matrix(rbinom(nrow(loci1), 1, 1-prob2), ncol(loci1), # drive conversion at each locus
+                        nrow = nrow(loci1), ncol = ncol(loci1))
+  res_event <- resist_dev *cleavage # resistance development through NHEJ
   
-  parent$autosome1  <- loci1
-  parent$autosome2  <- loci2
+  loci1[loci1 == 0 &  res_event == 1 & drive_wt == 1] <- 2  
+  loci2[loci2 == 0 & res_event == 1 & drive_wt == 1] <- 2
+  
+  parent[[chrom1]]   <- loci1
+  parent[[chrom2]]   <- loci2
   
   return(parent)
 }
-
 
