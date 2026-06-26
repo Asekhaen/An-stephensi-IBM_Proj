@@ -133,30 +133,45 @@ prob_trans <- function(dd, mu, sigma) {
 }
 
 
-# estimated survival based on temperature and population density (aquatic stage),  
-# and temperature and humidity (adult stage) using daily mortality hazard, and 
-# developmental rate (see Golding et al., unpublished data)
+# # estimated survival based on temperature and population density (aquatic stage),  
+# # and temperature and humidity (adult stage) using daily mortality hazard, and 
+# # developmental rate (see Golding et al., unpublished data)
+# 
+# ensure_positive <- function(x) {
+#   x * as.numeric(x > 0)
+# }
+# 
+# # reload lifehistory functions from saved objects (RDS file) to used for survival. 
+# # Adapted from Golding et al., unpublished)
+# 
+# rehydrate_lifehistory_function <- function(path_to_object) {
+#   object <- readRDS(path_to_object)
+#   do.call(`function`,
+#           list(object$arguments,
+#                body(object$dummy_function)))
+# }
+# 
+# 
+# aquatic_stage <- "C:/Users/JOhiolei/OneDrive - The Kids Research Institute Australia/Documents/An-stephensi-IBM_Proj/R/das_temp_dens_As.RDS"
+# adult_stage <- "C:/Users/JOhiolei/OneDrive - The Kids Research Institute Australia/Documents/An-stephensi-IBM_Proj/R/ds_temp_humid.RDS"
+# 
+# das_temp_dens_As <- rehydrate_lifehistory_function(aquatic_stage)
+# ds_temp_humid_As <- rehydrate_lifehistory_function(adult_stage)
 
-ensure_positive <- function(x) {
-  x * as.numeric(x > 0)
+
+
+
+
+# Density-dependent survival for the aquatic stage 
+b_holt_survival <- function(density, 
+                              max_survival = 0.85,
+                              dd_effect = 0.01) {
+  # Or Zimmermann et al., 2021; ICES Journal of Marine Science (2021), 78(6) 2193 2203. doi:10.1093/icesjms/fsaa246
+   max_survival / (1 + dd_effect * density)
 }
 
-# reload lifehistory functions from saved objects (RDS file) to used for survival. 
-# Adapted from Golding et al., unpublished)
-
-rehydrate_lifehistory_function <- function(path_to_object) {
-  object <- readRDS(path_to_object)
-  do.call(`function`,
-          list(object$arguments,
-               body(object$dummy_function)))
-}
 
 
-aquatic_stage <- "C:/Users/JOhiolei/OneDrive - The Kids Research Institute Australia/Documents/An-stephensi-IBM_Proj/R/das_temp_dens_As.RDS"
-adult_stage <- "C:/Users/JOhiolei/OneDrive - The Kids Research Institute Australia/Documents/An-stephensi-IBM_Proj/R/ds_temp_humid.RDS"
-
-das_temp_dens_As <- rehydrate_lifehistory_function(aquatic_stage)
-ds_temp_humid_As <- rehydrate_lifehistory_function(adult_stage)
 
 
 # function to simulate oviposition frequency and batch sizes. mean eggs per female

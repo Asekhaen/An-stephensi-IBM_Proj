@@ -132,7 +132,9 @@ growth <- function(pop_patches,
                    t_max,
                    t_min,
                    humidty,
-                   surface_area,
+                   # surface_area,
+                   dd_effect,
+                   max_survival,
                    loci_cov_matrix,
                    ldt,
                    mu,
@@ -188,9 +190,9 @@ growth <- function(pop_patches,
       
      
       # estimate egg clutch size and timing of oviposition using daily average temperature  
-      max_temp <- temp_max[sim_days, i]
-      min_temp <- temp_min[sim_days, i]
-      daily_temp <- (max_temp+min_temp)/2
+      # max_temp <- t_max[sim_days, i]
+      # min_temp <- t_min[sim_days, i]
+      daily_temp <- (t_max+t_min)/2
       
       delay <- sim_delays(n.fem, daily_temp)
       batch_sizes <- sim_batch_sizes(n.fem)
@@ -447,9 +449,9 @@ growth <- function(pop_patches,
   
     # stage development using growth-degree day accumulation
  
-    egg_gdd_accumulated <- cal_dd (temp_max[sim_days, i], temp_min[sim_days, i], ldt["egg"])
-    larva_gdd_accumulated <- cal_dd (temp_max[sim_days, i], temp_min[sim_days, i], ldt["larva"])
-    pupa_gdd_accumulated <- cal_dd (temp_max[sim_days, i], temp_min[sim_days, i], ldt["pupa"])
+    egg_gdd_accumulated <- cal_dd (t_max, t_min, ldt["egg"])
+    larva_gdd_accumulated <- cal_dd (t_max, t_min, ldt["larva"])
+    pupa_gdd_accumulated <- cal_dd (t_max, t_min, ldt["pupa"])
 
     
     pop <- pop |>
@@ -488,30 +490,45 @@ growth <- function(pop_patches,
    
    # Density-dependent survival adjusted to temperature + density (aquatic stage) and temperature + humidity (adult stage)
    
-   # density of the auqtic stages (eggs, larvae, and pupae) 
-   count <- sum((pop$stage == "egg") + (pop$stage == "larva") + (pop$stage == "pupa"))
-   aquatic_stage_density <- count/surface_area
+   # population density: aquatic stages (eggs, larvae, and pupae) 
+   aq_stage_count <- sum((pop$stage == "egg") + (pop$stage == "larva") + (pop$stage == "pupa"))
+   
+   # aquatic_stage_density <- aq_stage_count/surface_area
    
    # daily temp
-   max_temp <- temp_max[sim_days, i]
-   min_temp <- temp_min[sim_days, i]
-   daily_temp <- (max_temp+min_temp)/2
+   daily_temp <- (t_max+t_min)/2
    
    # daily humidity  
-   daily_humidity <- humidity[sim_days,i]
-  
-     pop <- pop |> mutate(
-       alive = case_when(
-         stage == "egg" ~ rbinom(n(), 1, das_temp_dens_As(daily_temp, aquatic_stage_density)),
-         stage == "larva" ~ rbinom(n(), 1, das_temp_dens_As(daily_temp, aquatic_stage_density)),
-         stage == "pupa" ~ rbinom(n(), 1, das_temp_dens_As(daily_temp, aquatic_stage_density)),
-         stage == "adult" ~ rbinom(n(), 1, ds_temp_humid_As(daily_temp, daily_humidity, species = "An. stephensi")),
-         TRUE ~ NA_integer_
-       ),
-       alive = alive == 1
-   )
+   # daily_humidity <- humidity
 
-    pop <- pop[pop$alive,]
+   # #Aquatic stage density-dependent survival using daily mortality hazard and developmental rate (see Golding et al., unpublished data)  
+   #   pop <- pop |> mutate(
+   #     alive = case_when(
+   #       stage == "egg" ~ rbinom(n(), 1, das_temp_dens_As(daily_temp, aquatic_stage_density)),
+   #       stage == "larva" ~ rbinom(n(), 1, das_temp_dens_As(daily_temp, aquatic_stage_density)),
+   #       stage == "pupa" ~ rbinom(n(), 1, das_temp_dens_As(daily_temp, aquatic_stage_density)),
+   #       stage == "adult" ~ rbinom(n(), 1, ds_temp_humid_As(daily_temp, daily_humidity, species = "An. stephensi")),
+   #       TRUE ~ NA_integer_
+   #     ),
+   #     alive = alive == 1
+   # )
+
+  
+   #Aquatic stage density-dependent survival using Beverton-Holt survival model
+   
+   pop <- pop |> mutate(
+     alive = case_when(
+       stage == "egg" ~ rbinom(n(), 1, b_holt_survival(aq_stage_count, max_survival, dd_effect)),
+       stage == "larva" ~ rbinom(n(), 1, b_holt_survival(aq_stage_count, max_survival, dd_effect)),
+       stage == "pupa" ~ rbinom(n(), 1, b_holt_survival(aq_stage_count, max_survival, dd_effect)),
+       stage == "adult" ~ rbinom(n(), 1, max_survival),
+       TRUE ~ NA_integer_
+     ),
+     alive = alive == 1
+   )
+   
+   
+   pop <- pop[pop$alive,]
     
     updated_pop_patches[[i]] <- pop
   }
@@ -585,7 +602,9 @@ run_model <- function(patches,
                        t_max,
                        t_min,
                        humidty,
-                       surface_area,
+                       # surface_area,
+                       dd_effect,
+                       max_survival,
                        ldt,
                        mu,
                        sigma_dd) {
@@ -593,9 +612,7 @@ run_model <- function(patches,
   pop <- ini_pop(patches, n_per_patch, coords, n_loci, stages, release_freq)
   
   patch_sizes <- list()
-  #colonisation_rate_list <- list()
-  allele_frequency <- list()
-  # invasion_speed <- list()
+  genetic_data <- list()
   
   
   for (day in 1:sim_days) {
@@ -617,7 +634,9 @@ run_model <- function(patches,
                   t_max,
                   t_min,
                   humidty,
-                  surface_area,
+                  # surface_area,
+                  dd_effect,
+                  max_survival,
                   loci_cov_matrix = l.cov.mat,
                   ldt,
                   mu,
@@ -636,7 +655,46 @@ run_model <- function(patches,
       unoccupied = length(patch) - patch_occupied,
       occupancy_rate = patch_occupied/length(patch)
     )
+    
+    
+    
+    genetic_data[[day]] <- lapply(seq_along(pop), function(patch_id) {
+      # browser()
+      patch_pop <- pop[[patch_id]]
+      chromosome1   <- patch_pop$autosome1   
+      chromosome2   <- patch_pop$autosome2   
+      n_ind   <- nrow(chromosome1)
+      n_loci  <- ncol(chromosome1)
+      
+      # genotype_sum <- chromosome1 + chromosome2    
+      # AA_count <- colSums(genotype_sum == 0)   # homozygous wild/normal
+      # Aa_count <- colSums(genotype_sum == 1)   # heterozygous recessive
+      # aa_count <- colSums(genotype_sum == 2)   # homozygous deleterious (the proportion of "aa" can be use as measurement for genetic load)
+      # 
+      
+      total_alleles <- 2 * n_ind
+      wildtype <- colSums(chromosome1 == 0) + colSums(chromosome2 == 0)
+      drive <- colSums(chromosome1 == 1) + colSums(chromosome2 == 1)
+      resistance <- colSums(chromosome1 == 2) + colSums(chromosome2 == 2)
+      
+      freq_w <- ifelse(wildtype > 0, wildtype / total_alleles, 0)
+      freq_d <- ifelse(drive > 0, drive / total_alleles, 0)
+      freq_r <- ifelse(resistance > 0, resistance / total_alleles, 0)
+      
+      
+      tibble(
+        patch = patch_id,
+        time_step  = day,
+        locus = 1:n_loci,
+        w = freq_w,
+        d = freq_d,
+        r = freq_r
+      )
+    })
+    
+    
     patch_sizes_df <- bind_rows(patch_sizes)
+    genetic_data_df <- bind_rows(genetic_data)
 
     # # Track overall allele frequency and allele frequency per locus
     # allele_frequency[[day]] <-  lapply(seq_along(pop), function(patch_id) {
@@ -704,7 +762,7 @@ run_model <- function(patches,
     # allele_freq = allele_frequency_df,
     # per_locus_output = per_locus_df,
     # overall_loci = overall_df,
-    # invasion_speed <- invasion_speed_df
+    genetic_df = genetic_data_df,
     final_pop = pop
   )
 }
