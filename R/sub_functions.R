@@ -303,7 +303,7 @@ home_drive_conv <- function(parent, chrom1, chrom2, prob1, prob2) {
   # }
   
   
-  drive_wt <- ((loci1 == 0) & (loci2 == 1)) | ((loci1 == 1) & (loci2 == 0))
+  drive_wt <- ((loci1 == 0) & (loci2 == 2)) | ((loci1 == 2) & (loci2 == 0))
   
   drive_wt <- 1 * drive_wt  # convert logical to numeric
   
@@ -316,18 +316,18 @@ home_drive_conv <- function(parent, chrom1, chrom2, prob1, prob2) {
                     nrow = nrow(loci1), ncol = ncol(loci1)) 
   conv_event <- homing*cleavage # conversion event?
   
-  loci1[loci1 == 0 & conv_event == 1 & drive_wt == 1] <- 1 # successful conversions
-  loci2[loci2 == 0 & conv_event == 1 & drive_wt == 1] <- 1
+  loci1[loci1 == 0 & conv_event == 1 & drive_wt == 1] <- 2 # successful conversions
+  loci2[loci2 == 0 & conv_event == 1 & drive_wt == 1] <- 2
   
+  # # Resistance development if homing fails (0 to 2)
+  # resist_dev  <- matrix(rbinom(nrow(loci1), 1, 1-prob2), ncol(loci1), # drive conversion at each locus
+  #                       nrow = nrow(loci1), ncol = ncol(loci1))
+  # res_event <- resist_dev *cleavage # resistance development through NHEJ
+  # loci1[loci1 == 0 &  res_event == 1 & drive_wt == 1] <- 3  
+  # loci2[loci2 == 0 & res_event == 1 & drive_wt == 1] <- 3
   
-  
-  # Resistance development if homing fails (0 to 2)
-  resist_dev  <- matrix(rbinom(nrow(loci1), 1, 1-prob2), ncol(loci1), # drive conversion at each locus
-                        nrow = nrow(loci1), ncol = ncol(loci1))
-  res_event <- resist_dev *cleavage # resistance development through NHEJ
-  
-  loci1[loci1 == 0 &  res_event == 1 & drive_wt == 1] <- 2  
-  loci2[loci2 == 0 & res_event == 1 & drive_wt == 1] <- 2
+  loci1[loci1 == 0 &  conv_event == 0 & drive_wt == 1] <- 3  
+  loci2[loci2 == 0 & conv_event == 0 & drive_wt == 1] <- 3
   
   parent[[chrom1]]   <- loci1
   parent[[chrom2]]   <- loci2

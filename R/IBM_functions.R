@@ -48,17 +48,29 @@ ini_pop <- function(patches,
                     coords,
                     n_loci,
                     stages,
+                    prob_wildtype1, 
+                    prob_wildtype2,
                     release_freq) {
   patches_pop <- list()
   
   for (i in seq_len(patches)) {
-    
+    # browser()
     N <- n_per_patch[i]
     stage <- sample(stages, N, replace = TRUE)
     adult_stages <- which(stage == "adult")
     n_adults <- length(adult_stages)
-    autosome1 <- matrix(0, nrow = N, ncol = n_loci)
-    autosome2 <- matrix(0, nrow = N, ncol = n_loci)
+    autosome1 <- matrix(sample(
+      c(0,1),                             # polymorphic locus: 0 = wild-type 1, 1 = wild-type 2
+      N * n_loci,
+      replace = TRUE,
+      prob = c(prob_wildtype1, prob_wildtype2)), 
+      ncol = n_loci)
+    autosome2 <-  matrix(sample(
+      c(0,1),                             # polymorphic locus: 0 = wild-type 1, 1 = wild-type 2
+      N * n_loci,
+      replace = TRUE,
+      prob = c(prob_wildtype1, prob_wildtype2)), 
+      ncol = n_loci)
     
     if (n_adults > 0) {
       
@@ -67,7 +79,7 @@ ini_pop <- function(patches,
 
       # heterozygous at all loci
       which_chr <- matrix(
-        rbinom(length(carriers) * n_loci, 1, 0.5),
+        rbinom(length(carriers) * n_loci, 3, 0.5),
         nrow = length(carriers),
         ncol = n_loci
       )
@@ -111,7 +123,6 @@ ini_pop <- function(patches,
   
   return(patches_pop)
 }
-
 
 
 
@@ -207,16 +218,32 @@ growth <- function(pop_patches,
       
       #Effect of drive on fitness {0 = wild type (w) 1 = drive (d), 2 = non-functional resistance (r2)} 
       
+      # wt_homozygous  <- (fem$autosome1 == 0) & (fem$autosome2 == 0)
+      # drive_homozygous <- (fem$autosome1 == 1) & (fem$autosome2 == 1)  # sterile
+      # res_homozygous <- fem$autosome1 == 2 & fem$autosome2 == 2   # sterile
+      # drive_wt <- ((fem$autosome1 == 0) & (fem$autosome2 == 1)) | ((fem$autosome1 == 1) & (fem$autosome2 == 0))
+      # drive_res <- ((fem$autosome1 == 1) & (fem$autosome2 == 2)) | ((fem$autosome1 == 2) & (fem$autosome2 == 1))   # sterile
+      # res_wt <- ((fem$autosome1 == 0) & (fem$autosome2 == 2)) | ((fem$autosome1 == 2) & (fem$autosome2 == 0))
+      # disrupted_loci <- drive_homozygous + res_homozygous + drive_res
+      # 
+
+      
       wt_homozygous  <- (fem$autosome1 == 0) & (fem$autosome2 == 0)
-      drive_homozygous <- (fem$autosome1 == 1) & (fem$autosome2 == 1)  # sterile
-      res_homozygous <- fem$autosome1 == 2 & fem$autosome2 == 2   # sterile
-      drive_wt <- ((fem$autosome1 == 0) & (fem$autosome2 == 1)) | ((fem$autosome1 == 1) & (fem$autosome2 == 0))
-      drive_res <- ((fem$autosome1 == 1) & (fem$autosome2 == 2)) | ((fem$autosome1 == 2) & (fem$autosome2 == 1))   # sterile
-      res_wt <- ((fem$autosome1 == 0) & (fem$autosome2 == 2)) | ((fem$autosome1 == 2) & (fem$autosome2 == 0))
+      wt2_homozygous  <- (fem$autosome1 == 1) & (fem$autosome2 == 1)
+      drive_homozygous <- (fem$autosome1 == 2) & (fem$autosome2 == 2)  # sterile
+      res_homozygous <- fem$autosome1 == 3 & fem$autosome2 == 3   # sterile
+      drive_wt <- ((fem$autosome1 == 0) & (fem$autosome2 == 2)) | ((fem$autosome1 == 2) & (fem$autosome2 == 0))
+      drive_wt2 <- ((fem$autosome1 == 1) & (fem$autosome2 == 2)) | ((fem$autosome1 == 2) & (fem$autosome2 == 1))
+      drive_res <- ((fem$autosome1 == 2) & (fem$autosome2 == 3)) | ((fem$autosome1 == 3) & (fem$autosome2 == 2))   # sterile
+      res_wt <- ((fem$autosome1 == 0) & (fem$autosome2 == 3)) | ((fem$autosome1 == 3) & (fem$autosome2 == 0))
+      res_wt2 <- ((fem$autosome1 == 1) & (fem$autosome2 == 3)) | ((fem$autosome1 == 3) & (fem$autosome2 == 1))
       disrupted_loci <- drive_homozygous + res_homozygous + drive_res
-
-
-      # oviposition (with effect of deleterious allele on fitness: sterility)
+      
+      
+      
+      
+      
+     # oviposition (with effect of deleterious allele on fitness: sterility)
       
      #  NOTE: ######### using the same if else.... you can use the effect in the same manner ##### 
      #  just bring in the homozygous boring stuff that capture the drive patter into each drive type
@@ -587,6 +614,8 @@ run_model <- function(patches,
                        coords,
                        n_loci,
                        stages,
+                       prob_wildtype1, 
+                       prob_wildtype2,
                        release_freq,
                        bloodmeal_prob, 
                        beta,
@@ -608,8 +637,15 @@ run_model <- function(patches,
                        ldt,
                        mu,
                        sigma_dd) {
-  
-  pop <- ini_pop(patches, n_per_patch, coords, n_loci, stages, release_freq)
+  #initialise population
+  pop <- ini_pop(patches, 
+                 n_per_patch, 
+                 coords, 
+                 n_loci, 
+                 stages, 
+                 prob_wildtype1, 
+                 prob_wildtype2, 
+                 release_freq)
   
   patch_sizes <- list()
   genetic_data <- list()
@@ -661,23 +697,26 @@ run_model <- function(patches,
     genetic_data[[day]] <- lapply(seq_along(pop), function(patch_id) {
       # browser()
       patch_pop <- pop[[patch_id]]
-      chromosome1   <- patch_pop$autosome1   
-      chromosome2   <- patch_pop$autosome2   
-      n_ind   <- nrow(chromosome1)
-      n_loci  <- ncol(chromosome1)
+      autosome1   <- patch_pop$autosome1   
+      autosome2   <- patch_pop$autosome2   
+      n_ind   <- nrow(autosome1)
+      n_loci  <- ncol(autosome1)
       
-      # genotype_sum <- chromosome1 + chromosome2    
+      # genotype_sum <- autosome1 + autosome2    
       # AA_count <- colSums(genotype_sum == 0)   # homozygous wild/normal
       # Aa_count <- colSums(genotype_sum == 1)   # heterozygous recessive
       # aa_count <- colSums(genotype_sum == 2)   # homozygous deleterious (the proportion of "aa" can be use as measurement for genetic load)
       # 
       
       total_alleles <- 2 * n_ind
-      wildtype <- colSums(chromosome1 == 0) + colSums(chromosome2 == 0)
-      drive <- colSums(chromosome1 == 1) + colSums(chromosome2 == 1)
-      resistance <- colSums(chromosome1 == 2) + colSums(chromosome2 == 2)
+      wildtype1 <- colSums(autosome1 == 0) + colSums(autosome2 == 0)
+      wildtype2 <- colSums(autosome1 == 1) + colSums(autosome2 == 1)
       
-      freq_w <- ifelse(wildtype > 0, wildtype / total_alleles, 0)
+      drive <- colSums(autosome1 == 2) + colSums(autosome2 == 2)
+      resistance <- colSums(autosome1 == 3) + colSums(autosome2 == 3)
+      
+      freq_w1 <- ifelse(wildtype1 > 0, wildtype1 / total_alleles, 0)
+      freq_w2 <- ifelse(wildtype2 > 0, wildtype2 / total_alleles, 0)
       freq_d <- ifelse(drive > 0, drive / total_alleles, 0)
       freq_r <- ifelse(resistance > 0, resistance / total_alleles, 0)
       
@@ -686,7 +725,8 @@ run_model <- function(patches,
         patch = patch_id,
         time_step  = day,
         locus = 1:n_loci,
-        w = freq_w,
+        w1 = freq_w1,
+        w2 = freq_w2,
         d = freq_d,
         r = freq_r
       )
