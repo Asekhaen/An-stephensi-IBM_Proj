@@ -4,7 +4,7 @@
 #               PARAMETERS                #
 ###########################################
 
-set.seed(202)
+set.seed(246)
 
 # Source functions and parameters 
 source("R/dependencies.R")
@@ -25,14 +25,16 @@ output <- run_model (patches = patches,
                      coords = coords,
                      n_loci = n_loci,
                      stages = stages,
+                     prob_wildtype1 = prob_wildtype1, 
+                     prob_wildtype2 = prob_wildtype2,
                      release_freq = release_freq,
                      bloodmeal_prob = bloodmeal_prob,
                      beta = beta,
                      decay = decay,
-                     recomb = FALSE,
+                     recomb = FALSE, # if TRUE = freely recombining, FALSE = no recombination
                      lethal_effect = FALSE,
                      sterile = TRUE,
-                     drive_type = "homing",  # chose "homing", "toxin_antidote", or "yle". Default is Mendelian
+                     drive_type = "homing",  #drive type: "homing", "toxin_antidote", or "yle". Default is Mendelian
                      prob1 = cut_rate,
                      prob2 = homing_rate,
                      sim_days = sim_days,
@@ -40,7 +42,9 @@ output <- run_model (patches = patches,
                      t_max = temp_max,
                      t_min = temp_min,
                      sigma,
-                     surface_area = s_area,
+                     # surface_area = s_area,
+                     dd_effect = dd_effect,
+                     max_survival = max_survival,
                      ldt = ldt,
                      mu = mu,
                      sigma_dd = sigma_dd)
@@ -74,7 +78,6 @@ output <- run_model (patches = patches,
 #                                       resistance_prob,
 #                                       daily_survival = daily_survival, 
 #                                       daily_transition = daily_transition,
-#                                       alpha = alpha,
 #                                       beta = beta,
 #                                       decay = decay,
 #                                       fecundity_effect = fecundity_effect,
