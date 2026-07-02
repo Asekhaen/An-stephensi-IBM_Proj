@@ -4,105 +4,35 @@
 
 # Initial population setup ####
 
-# 
-# ini_pop <- function(patches, n_per_patch, coords, n_loci) { 
-#   patches_pop <- list()
-#   
-#   for (i in 1:patches) {
-#     patches_pop[[i]] <- tibble(
-#       stage = sample(stages, n_per_patch[i], replace = TRUE),
-#       allo1 = make_allosome("X", n_per_patch[i]),
-#       allo2 = make_allosome(c("X", "Y"), n_per_patch[i]),
-#       sex = if_else(
-#         allo1[,1] == "X" & allo2[,1] == "X",
-#         "female",
-#         "male"),
-#       autosome1 = matrix(0, nrow = n_per_patch[i], ncol = n_loci),    # 0 = wild type, 1 = drive, 2 = resistance
-#       autosome2 = matrix(0, nrow =n_per_patch[i], ncol = n_loci),
-#       male_allo1 = matrix(NA_character_, nrow = n_per_patch[i], ncol = 2),
-#       male_allo2 = matrix(NA_character_, nrow = n_per_patch[i], ncol = 2),
-#       male_autosome1 = matrix(NA, nrow = n_per_patch[i], ncol = n_loci),
-#       male_autosome2 = matrix(NA, nrow = n_per_patch[i], ncol = n_loci),
-#       gdd_accumulated = 0,
-#       next_oviposition = 0,
-#       parity1 = 0,
-#       parity2 = 0,
-#       parity3 = 0,
-#       mated = 0,
-#       fed = 0,
-#       gravid = 0,
-#       birth = NA_integer_,
-#       first_ovip_day = NA_integer_,
-#       alive = TRUE
-#     )
-#     if (length(n_per_patch) != patches) warning(
-#       "Initial patch population does not equal specified number of patches")
-#   }
-#   
-#   return(patches_pop)
-# }
-
-
-ini_pop <- function(patches,
-                    n_per_patch,
-                    coords,
-                    n_loci,
-                    stages,
-                    prob_wildtype1, 
-                    prob_wildtype2,
-                    release_freq) {
+ini_pop <- function(patches, 
+                    n_per_patch, 
+                    coords, 
+                    n_loci, 
+                    prob_wildtype1,
+                    prob_wildtype2) {
   patches_pop <- list()
-  
-  for (i in seq_len(patches)) {
-    # browser()
-    N <- n_per_patch[i]
-    stage <- sample(stages, N, replace = TRUE)
-    adult_stages <- which(stage == "adult")
-    n_adults <- length(adult_stages)
-    autosome1 <- matrix(sample(
-      c(0,1),                             # polymorphic locus: 0 = wild-type 1, 1 = wild-type 2
-      N * n_loci,
-      replace = TRUE,
-      prob = c(prob_wildtype1, prob_wildtype2)), 
-      ncol = n_loci)
-    autosome2 <-  matrix(sample(
-      c(0,1),                             # polymorphic locus: 0 = wild-type 1, 1 = wild-type 2
-      N * n_loci,
-      replace = TRUE,
-      prob = c(prob_wildtype1, prob_wildtype2)), 
-      ncol = n_loci)
-    
-    if (n_adults > 0) {
-      
-      n_carriers <- round(n_adults * release_freq)
-      carriers <- sample(adult_stages, size = n_carriers)
-
-      # heterozygous at all loci
-      which_chr <- matrix(
-        rbinom(length(carriers) * n_loci, 3, 0.5),
-        nrow = length(carriers),
-        ncol = n_loci
-      )
-      
-      autosome1[carriers, ] <- which_chr
-      autosome2[carriers, ] <- 1 - which_chr
-    }
-    
+  for (i in 1:patches) {
     patches_pop[[i]] <- tibble(
-      stage = stage,
-      allo1 = make_allosome("X", N),
-      allo2 = make_allosome(c("X", "Y"), N),
-      sex = if_else(
-        allo1[,1] == "X" & allo2[,1] == "X",
-        "female",
-        "male"
-      ),
-      autosome1 = autosome1,
-      autosome2 = autosome2,
-      male_allo1 = matrix(NA_character_, nrow = N, ncol = 2),
-      male_allo2 = matrix(NA_character_, nrow = N, ncol = 2),
-      male_autosome1 = matrix(NA, nrow = N, ncol = n_loci),
-      male_autosome2 = matrix(NA, nrow = N, ncol = n_loci),
+      stage = rep("adult", n_per_patch[i]),
+      allo1 = make_allosome("X", n_per_patch[i]),
+      allo2 = make_allosome(c("X", "Y"), n_per_patch[i]),
+      sex = if_else(allo1[,1] == "X" & allo2[,1] == "X", "female", "male"),
+      autosome1 = matrix(sample(
+        c(0,1),                             # polymorphic locus: 0 = wild-type 1, 1 = wild-type 2
+        n_loci * n_per_patch[i],
+        replace = TRUE,
+        prob = c(prob_wildtype1, prob_wildtype2)), 
+        ncol = n_loci),
+      autosome2 =  matrix(sample(
+        c(0,1),                             # polymorphic locus: 0 = wild-type 1, 1 = wild-type 2
+        n_loci *n_per_patch[i],
+        replace = TRUE,
+        prob = c(prob_wildtype1, prob_wildtype2)), 
+        ncol = n_loci),
+      male_allo1 = matrix(NA_character_, nrow = n_per_patch[i], ncol = 1),
+      male_allo2 = matrix(NA_character_, nrow = n_per_patch[i], ncol = 1),
+      male_autosome1 = matrix(NA, nrow = n_per_patch[i], ncol = n_loci),
+      male_autosome2 = matrix(NA, nrow = n_per_patch[i], ncol = n_loci),
       gdd_accumulated = 0,
       next_oviposition = 0,
       parity1 = 0,
@@ -115,15 +45,52 @@ ini_pop <- function(patches,
       first_ovip_day = NA_integer_,
       alive = TRUE
     )
+    if (length(n_per_patch) != patches) warning(
+      "Initial patch population does not equal specified number of patches")
   }
-  
-  if (length(n_per_patch) != patches) {
-    warning("Initial patch population does not equal specified number of patches")
-  }
-  
+
   return(patches_pop)
 }
 
+# this function introduces individuals with drives into the population
+introduce_drive <- function(initial_pop, per_release, n_loci) {
+  drive_adult <- per_release * initial_pop
+  which_chr =  matrix(
+    rbinom(drive_adult * n_loci, 1, 0.5),
+    nrow = drive_adult,
+    ncol = n_loci
+  )
+  autosome1 = matrix(rbinom(drive_adult, 0, 0.5), n_loci,
+                     nrow = drive_adult, ncol = n_loci)
+  autosome2 = matrix(rbinom(drive_adult, 0, 0.5), n_loci,
+                     nrow = drive_adult, ncol = n_loci)
+  autosome1 <- which_chr * 2        # 2 denotes drive allele
+  autosome2 <- (1 - which_chr) * 2  # I did this to ensure heterozygous on either chromosome only  
+
+  tibble(
+    stage = rep("adult", drive_adult),
+    allo1 = make_allosome("X", drive_adult),
+    allo2 = make_allosome(c("X", "Y"), drive_adult),
+    sex = if_else(allo1[,1] == "X" & allo2[,1] == "X", "female", "male"),
+    autosome1 = autosome1,
+    autosome2 = autosome2,
+    male_allo1 = matrix(NA_character_, nrow = drive_adult),
+    male_allo2 = matrix(NA_character_, nrow = drive_adult),
+    male_autosome1 = matrix(NA, nrow = drive_adult, ncol = n_loci),
+    male_autosome2 = matrix(NA, nrow = drive_adult, ncol = n_loci),
+    gdd_accumulated = 0,
+    next_oviposition = 0,
+    parity1 = 0,
+    parity2 = 0,
+    parity3 = 0,
+    mated = 0,
+    fed = 0,
+    gravid = 0,
+    birth = sim_days,
+    first_ovip_day = NA_integer_,
+    alive = TRUE
+  )
+}
 
 
 # Growth, reproduction and genetic/drive inheritance ####
@@ -134,11 +101,13 @@ growth <- function(pop_patches,
                    beta,
                    decay,
                    recomb,
-                   lethal_effect,
-                   sterile,
+                   # lethal_effect,
+                   drive_effect,
                    drive_type,
                    prob1,
                    prob2,
+                   homing_prob,
+                   shred_prob,
                    sim_days,
                    t_max,
                    t_min,
@@ -150,11 +119,12 @@ growth <- function(pop_patches,
                    ldt,
                    mu,
                    sigma_dd) {
-    # if (sim_days == 224) browser()
+    # if (sim_days == 25) browser()
     # browser()
     updated_pop_patches <- list()
     
     for (i in seq_along(pop_patches)) {
+      
       pop <- pop_patches[[i]]  
       
       male <- pop[pop$sex == "male" & pop$stage == "adult", ]  # All males
@@ -240,35 +210,29 @@ growth <- function(pop_patches,
       disrupted_loci <- drive_homozygous + res_homozygous + drive_res
       
       
-      
-      
-      
      # oviposition (with effect of deleterious allele on fitness: sterility)
       
-     #  NOTE: ######### using the same if else.... you can use the effect in the same manner ##### 
-     #  just bring in the homozygous boring stuff that capture the drive patter into each drive type
-      
-      if (drive_type == "homing" & sterile) {
+      if (drive_type == "homing" & drive_effect == "sterility") {
         sterile_loci <- (disrupted_loci > 0)
         sterility <- as.numeric(rowSums(sterile_loci) == 0)
         exp_offspring1 <- cond1 * fem$gravid * batch_sizes * sterility
         exp_offspring2 <- cond2 * fem$gravid * batch_sizes * sterility
         exp_offspring3 <- cond3 * fem$gravid * batch_sizes * sterility
         exp_offspring <- exp_offspring1 + exp_offspring2 + exp_offspring3
+        
+      } else if (drive_type == "homing" & drive_effect == "x_shredding") {
+        exp_offspring1 <- cond1 * fem$gravid * batch_sizes
+        exp_offspring2 <- cond2 * fem$gravid * batch_sizes
+        exp_offspring3 <- cond3 * fem$gravid * batch_sizes
+        exp_offspring <- exp_offspring1 + exp_offspring2 + exp_offspring3
+
       # } else if (drive_type == "toxin_antidote") {
-      #   sterile_loci <- (disrupted_loci > 0)
-      #   sterility <- as.integer(rowSums(sterile_loci) != ncol(sterile_loci))
-      #   exp_offspring1 <- cond1 * fem$gravid * batch_sizes * sterility
-      #   exp_offspring2 <- cond2 * fem$gravid * batch_sizes * sterility
-      #   exp_offspring3 <- cond3 * fem$gravid * batch_sizes * sterility
-      #   exp_offspring <- exp_offspring1 + exp_offspring2 + exp_offspring3
-      # } else if (drive_type == "yle") {
-      #   sterile_loci <- (disrupted_loci > 0)
-      #   sterility <- as.integer(rowSums(sterile_loci) != ncol(sterile_loci))
-      #   exp_offspring1 <- cond1 * fem$gravid * batch_sizes * sterility
-      #   exp_offspring2 <- cond2 * fem$gravid * batch_sizes * sterility
-      #   exp_offspring3 <- cond3 * fem$gravid * batch_sizes * sterility
-      #   exp_offspring <- exp_offspring1 + exp_offspring2 + exp_offspring3
+        #   sterile_loci <- (disrupted_loci > 0)
+        #   sterility <- as.integer(rowSums(sterile_loci) != ncol(sterile_loci))
+        #   exp_offspring1 <- cond1 * fem$gravid * batch_sizes * sterility
+        #   exp_offspring2 <- cond2 * fem$gravid * batch_sizes * sterility
+        #   exp_offspring3 <- cond3 * fem$gravid * batch_sizes * sterility
+        #   exp_offspring <- exp_offspring1 + exp_offspring2 + exp_offspring3
       }
         else {
         exp_offspring1 <- cond1 * fem$gravid * batch_sizes
@@ -296,25 +260,39 @@ growth <- function(pop_patches,
     # individuals that are still part of the female population 
     exp_offspring <- replace(exp_offspring, is.na(exp_offspring), 0) 
     
+    
     # Offspring generation: 
-    #n_offspring <- rpois(n.fem, exp_offspring)  # No need to redraw fro poison since batch sizes has already been calculated using a mean value
+    
+    # n_offspring <- rpois(n.fem, exp_offspring)  
+    # No need to redraw from poison since batch sizes has already been calculated using a mean value
+    
     total_offspring <- sum(exp_offspring, na.rm = TRUE)
       
     
       if (total_offspring > 0){  
-      
-        
-        # Genetic makeup of gametes: replicate these according to the `exp_offspring` produced per female/male pair
-        
-        if (drive_type == "homing"){
+      # Genetic makeup of gametes: replicate these according to the number `exp_offspring` produced per female/male pair
+        if (drive_type == "homing" & drive_effect == "sterility"){
           fem_germline <- fem[rep(1:n.fem, exp_offspring), c("autosome1", "autosome2")]
           male_germline <- fem[rep(1:n.fem, exp_offspring), c("male_autosome1", "male_autosome2")]
-          
           fem_germline <- home_drive_conv(fem_germline, chrom1 = "autosome1", chrom2 = "autosome2", prob1, prob2)
           male_germline <- home_drive_conv(male_germline, chrom1 = "male_autosome1", chrom2 = "male_autosome2", prob1, prob2)
           
           fem_allo <- fem[rep(1:n.fem, exp_offspring), c("allo1", "allo2")]
           male_allo <- fem[rep(1:n.fem, exp_offspring), c("male_allo1", "male_allo2")]
+        } else if (drive_type == "homing" & drive_effect == "x_shredding"){
+          fem_germline <- fem[rep(1:n.fem, exp_offspring), c("autosome1", "autosome2")]
+          male_germline <- fem[rep(1:n.fem, exp_offspring), c("male_autosome1", "male_autosome2")]
+          fem_germline <- shred_drive_conv(fem_germline, chrom1 = "autosome1", chrom2 = "autosome2", homing_prob)
+          male_germline <- shred_drive_conv(male_germline, chrom1 = "male_autosome1", chrom2 = "male_autosome2", homing_prob)
+
+          fem_allo <- fem[rep(1:n.fem, exp_offspring), c("allo1", "allo2")]
+          male_allo <- fem[rep(1:n.fem, exp_offspring), c("male_allo1", "male_allo2")]
+          
+         
+          male_allo <- shred_x (male_germline, chrom1 = "male_autosome1", 
+                                chrom2 = "male_autosome2", male_allo, 
+                                allosome1 = "male_allo1", 
+                                allosome2 = "male_allo2", shred_prob)
           
         # } else if (drive_type == "toxin_antidote"){
         #   fem_germline <- fem[rep(1:n.fem, exp_offspring), c("autosome1", "autosome2")]
@@ -323,12 +301,7 @@ growth <- function(pop_patches,
         #   fem_allo <- fem[rep(1:n.fem, exp_offspring), c("allo1", "allo2")]
         #   male_allo <- fem[rep(1:n.fem, exp_offspring), c("male_allo1", "male_allo2")]
         #   
-        # } else if (drive_type == "yle"){
-        #   fem_germline <- fem[rep(1:n.fem, exp_offspring), c("autosome1", "autosome2")]
-        #   male_germline <- fem[rep(1:n.fem, exp_offspring), c("male_autosome1", "male_autosome2")]
-        #   
-        #   fem_allo <- fem[rep(1:n.fem, exp_offspring), c("allo1", "allo2")]
-        #   male_allo <- fem[rep(1:n.fem, exp_offspring), c("male_allo1", "male_allo2")]
+
         } else {   # this keeps it Mendelian (without recombination)
           fem_germline <- fem[rep(1:n.fem, exp_offspring), c("autosome1", "autosome2")]
           male_germline <- fem[rep(1:n.fem, exp_offspring), c("male_autosome1", "male_autosome2")]
@@ -363,15 +336,11 @@ growth <- function(pop_patches,
                                         nrow = total_offspring, ncol = n_loci)
         }
  
-        
-        
-
-        # this selects which allosome (sex determining chromosome) arm is passed to the offspring
-        
-        which_allosome  <- matrix(rbinom(total_offspring, 1, 0.5), 2,
-                                  nrow = total_offspring, ncol = 2)
-        which_allosome_mate <- matrix(rbinom(total_offspring, 1, 0.5), 2,
-                                      nrow = total_offspring, ncol = 2)
+       # this selects which allosome (sex determining chromosome) arm is passed to the offspring
+        which_allosome  <- matrix(rbinom(total_offspring, 1, 0.5), 1,
+                                  nrow = total_offspring, ncol = 1)
+        which_allosome_mate <- matrix(rbinom(total_offspring, 1, 0.5), 1,
+                                      nrow = total_offspring, ncol = 1)
         
         
         
@@ -384,7 +353,7 @@ growth <- function(pop_patches,
           allo2 = ifelse(which_allosome_mate,
                          male_allo$male_allo1,
                          male_allo$male_allo2),     
-          sex = ifelse(allo1[,1] == "X" & allo2[,1] == "X", "female", "male"),
+          sex = if_else(allo1[,1] == "X" & allo2[,1] == "X", "female", "male"),
           autosome1 = ifelse(which_autosome,
                              fem_germline$autosome1,
                              fem_germline$autosome2), 
@@ -393,8 +362,8 @@ growth <- function(pop_patches,
                               male_germline$male_autosome2),
           male_autosome1 = matrix(NA, nrow = total_offspring, ncol = n_loci),
           male_autosome2 = matrix(NA, nrow = total_offspring, ncol = n_loci),
-          male_allo1 = matrix(NA_character_, nrow = total_offspring, ncol = 2),
-          male_allo2 = matrix(NA_character_, nrow = total_offspring, ncol = 2),
+          male_allo1 = matrix(NA_character_, nrow = total_offspring, ncol = 1),
+          male_allo2 = matrix(NA_character_, nrow = total_offspring, ncol = 1),
           gdd_accumulated = 0,
           next_oviposition = 0,
           parity1 = 0,
@@ -409,20 +378,19 @@ growth <- function(pop_patches,
         )
       
         
-        # effect of drive on individual fitness: lethal effect
-
-        if (drive_type == "homing" & lethal_effect){
-          drive_homozygous <- (offspring$autosome1 == 1) & (offspring$autosome2 == 1)  # sterile
-          res_homozygous <- offspring$autosome1 == 2 & offspring$autosome2 == 2   # sterile
-          drive_res <- ((offspring$autosome1 == 1) & (offspring$autosome2 == 2)) | ((offspring$autosome1 == 2) & (offspring$autosome2 == 1))   # sterile
-          disrupted_loci <- drive_homozygous + res_homozygous + drive_res
-          
-          
-          homozygous_lethal <- (disrupted_loci > 0)
-          any_lethal <- rowSums(homozygous_lethal) > 0
-          offspring <- filter(offspring, !any_lethal)
-          #pop <- pop[pop[!any_lethal], ]
-        }
+        # # effect of drive on individual fitness: lethal effect
+        # 
+        # if (drive_type == "homing" & lethal_effect){
+        #   drive_homozygous <- (offspring$autosome1 == 1) & (offspring$autosome2 == 1)  # sterile
+        #   res_homozygous <- offspring$autosome1 == 2 & offspring$autosome2 == 2   # sterile
+        #   drive_res <- ((offspring$autosome1 == 1) & (offspring$autosome2 == 2)) | ((offspring$autosome1 == 2) & (offspring$autosome2 == 1))   # sterile
+        #   disrupted_loci <- drive_homozygous + res_homozygous + drive_res
+        # 
+        #   homozygous_lethal <- (disrupted_loci > 0)
+        #   any_lethal <- rowSums(homozygous_lethal) > 0
+        #   offspring <- filter(offspring, !any_lethal)
+        #   #pop <- pop[pop[!any_lethal], ]
+        # }
 
 
         # Update pop with offspring & fem population
@@ -434,46 +402,6 @@ growth <- function(pop_patches,
         pop <- bind_rows(pop, fem)
       }
       
-      
-    
-    # # effect of deleterious allele on fitness: lethal effect
-      # 
-      # if (lethal_effect){
-      #   homozygous_lethal <- (pop$autosome1 == 1) & (pop$autosome2 == 1)
-      #   any_homozygous <- rowSums(homozygous_lethal) > 0
-      #   pop <- filter(pop, !any_homozygous)
-      #   #pop <- pop[pop[!any_homozygous], ]
-      # }
-      # 
-      
-    # # Gene Drive architecture (conversion mechanism and inheritance)
-    # 
-    #     drive_conversion <- function(parent, prob1, prob2) {
-    #       if (any(is.na(parent$chromosome1)) || any(is.na(parent$chromosome2))) {
-    #           warning("NA detected in allele input!")
-    #         }
-    #       heterozygous <- (parent$chromosome1 + parent$chromosome2) == 1
-    #       # Drive conversion 95% conversion rate
-    #       converted <- rbinom(length(parent$chromosome1), 1, prob1) # drive conversion at each locus
-    #       conv_event <- converted*heterozygous # conversion event?
-    #       parent$chromosome1[parent$chromosome1 == 0 & conv_event == 1] <- 1 # successful conversions
-    #       parent$chromosome2[parent$chromosome2 == 0 & conv_event == 1] <- 1
-    # 
-    #       # Resistance development (0 → 2)
-    #       failed_conv <- heterozygous & conv_event == 0
-    #       resistance_event <- rbinom(length(parent$chromosome1), 1, prob2)
-    #       parent$chromosome1[parent$chromosome1 == 0 & failed_conv & resistance_event == 1] <- 2  # Thoughts/To do: individuals that did not develop resistance, yet heterozygous can be can be designated as those with functional resistance and resistant to future Cas9 cutting
-    #       parent$chromosome2[parent$chromosome2 == 0 & failed_conv & resistance_event == 1] <- 2
-    # 
-    #       return(parent)
-    #     }
-    #     
-    #     
-    #     fem_germline <- drive_conversion(fem_germline, conversion_prob, resistance_prob)   # dams with drive converted germ line
-    #     male_germline <- drive_conversion(male_germline, conversion_prob, resistance_prob) # sires with drive converted germ line
-  
-      
-  
     # stage development using growth-degree day accumulation
  
     egg_gdd_accumulated <- cal_dd (t_max, t_min, ldt["egg"])
@@ -516,7 +444,6 @@ growth <- function(pop_patches,
    
    
    # Density-dependent survival adjusted to temperature + density (aquatic stage) and temperature + humidity (adult stage)
-   
    # population density: aquatic stages (eggs, larvae, and pupae) 
    aq_stage_count <- sum((pop$stage == "egg") + (pop$stage == "larva") + (pop$stage == "pupa"))
    
@@ -613,19 +540,22 @@ run_model <- function(patches,
                        n_per_patch, 
                        coords,
                        n_loci,
-                       stages,
+                       # stages,
                        prob_wildtype1, 
                        prob_wildtype2,
-                       release_freq,
+                       per_release,
+                       release_day,
                        bloodmeal_prob, 
                        beta,
                        decay,
                        recomb,
-                       lethal_effect,
-                       sterile,
+                       # lethal_effect,
+                       drive_effect,
                        drive_type,
                        prob1,
                        prob2,
+                       homing_prob,
+                       shred_prob,
                        sim_days,
                        dispersal_type,
                        t_max,
@@ -642,18 +572,22 @@ run_model <- function(patches,
                  n_per_patch, 
                  coords, 
                  n_loci, 
-                 stages, 
+                 # stages,
                  prob_wildtype1, 
-                 prob_wildtype2, 
-                 release_freq)
+                 prob_wildtype2) 
+
   
   patch_sizes <- list()
   genetic_data <- list()
   
   
   for (day in 1:sim_days) {
-    #if (day == 45) browser()
-    cat("Day", day, "Underway \n")
+   # if (day == 200) browser()
+    if (drive_type == "homing" & day == release_day){
+      drive_pop <- introduce_drive(initial_pop = nrow(pop[[1]]), per_release, n_loci)
+      pop[[1]] <- bind_rows(pop[[1]], drive_pop)
+    }
+    
     # Growth with reproduction
     pop <- growth(pop_patches = pop,
                   bloodmeal_prob, 
@@ -661,11 +595,13 @@ run_model <- function(patches,
                   beta,
                   decay,
                   recomb,
-                  lethal_effect,
-                  sterile,
+                  # lethal_effect,
+                  drive_effect,
                   drive_type,
                   prob1,
                   prob2,
+                  homing_prob,
+                  shred_prob,
                   sim_days = day,
                   t_max,
                   t_min,
@@ -686,10 +622,11 @@ run_model <- function(patches,
     patch_sizes[[day]] <- tibble(
       day = day,
       patch = seq_along(pop),
+      males = sapply(pop, function(p) sum(p$sex == "male", na.rm = TRUE)),
+      females = sapply(pop, function(p) sum(p$sex == "female", na.rm = TRUE)),
       pop_size = sapply(pop, nrow),
       patch_occupied = sum(pop_size > 0),
-      unoccupied = length(patch) - patch_occupied,
-      occupancy_rate = patch_occupied/length(patch)
+      unoccupied = length(patch) - patch_occupied
     )
     
     
@@ -701,12 +638,6 @@ run_model <- function(patches,
       autosome2   <- patch_pop$autosome2   
       n_ind   <- nrow(autosome1)
       n_loci  <- ncol(autosome1)
-      
-      # genotype_sum <- autosome1 + autosome2    
-      # AA_count <- colSums(genotype_sum == 0)   # homozygous wild/normal
-      # Aa_count <- colSums(genotype_sum == 1)   # heterozygous recessive
-      # aa_count <- colSums(genotype_sum == 2)   # homozygous deleterious (the proportion of "aa" can be use as measurement for genetic load)
-      # 
       
       total_alleles <- 2 * n_ind
       wildtype1 <- colSums(autosome1 == 0) + colSums(autosome2 == 0)
@@ -720,7 +651,6 @@ run_model <- function(patches,
       freq_d <- ifelse(drive > 0, drive / total_alleles, 0)
       freq_r <- ifelse(resistance > 0, resistance / total_alleles, 0)
       
-      
       tibble(
         patch = patch_id,
         time_step  = day,
@@ -732,76 +662,15 @@ run_model <- function(patches,
       )
     })
     
-    
     patch_sizes_df <- bind_rows(patch_sizes)
     genetic_data_df <- bind_rows(genetic_data)
-
-    # # Track overall allele frequency and allele frequency per locus
-    # allele_frequency[[day]] <-  lapply(seq_along(pop), function(patch_id) {
-    #   patch_pop <- pop[[patch_id]]
-    #   loci_n  <- ncol(patch_pop$autosome1)  
-    #   n_ind   <- nrow(patch_pop$autosome1)  
-    #   total_allele_overall <- 2 * n_ind * loci_n
-    # 
-    #   overall <- tibble(
-    #     day        = day,
-    #     patch      = patch_id,
-    #     total      = total_allele_overall,
-    #     deleterious= sum(patch_pop$autosome1 == 1) + sum(patch_pop$autosome2 == 1),
-    #     wild       = total_allele_overall - deleterious,
-    #     freq       = ifelse(total_allele_overall == 0, 0, deleterious / total_allele_overall)
-    #   )
-    # })
-    #   allele_frequency_df <- bind_rows(allele_frequency)
+    cat("Day", day, "Completed \n")
     
-    
-    
-    # # Track allele frequency for overall allele and per locus.... in progress
-    # allele_frequency[[day]] <-  lapply(seq_along(pop), function(patch_id) {
-    #   patch_pop <- pop[[patch_id]]
-    #   loci_n  <- ncol(patch_pop$autosome1)  
-    #   n_ind   <- nrow(patch_pop$autosome1)  
-    #   total_allele_overall <- 2 * n_ind * loci_n
-    #   total_allele_locus <- 2 * n_ind
-    #   
-    #   overall <- tibble(
-    #     day        = day,
-    #     patch      = patch_id,
-    #     total      = total_allele_overall,
-    #     deleterious= sum(patch_pop$autosome1 == 1) + sum(patch_pop$autosome2 == 1),
-    #     wild       = total_allele_overall - deleterious,
-    #     freq       = deleterious / total_allele_overall
-    #   )
-    #   
-    #   per_locus <- tibble(
-    #     day        = day,
-    #     patch      = patch_id,
-    #     total      = total_allele_locus,
-    #     loci = seq_len(loci_n),
-    #     deleterious= colSums(patch_pop$autosome1 == 1) + colSums(patch_pop$autosome2 == 1),
-    #     wild       = total_allele_locus - deleterious,
-    #     freq       = deleterious / total_allele_locus
-    #   )
-    #     list(per_locus_freq = per_locus, overall_freq = overall)
-    # })
-    # 
-    # overall_df   <- map_dfr(allele_frequency[[day]], "overall_freq")
-    # per_locus_df <- map_dfr(allele_frequency[[day]], "per_locus_freq")
-   
-  
-    # invasion speed <- list()
-    
-
   }
   
-
   # Return the collected data
   list(
     pop_sizes = patch_sizes_df,
-    # patch_colonisation_rate = colonisation_df,
-    # allele_freq = allele_frequency_df,
-    # per_locus_output = per_locus_df,
-    # overall_loci = overall_df,
     genetic_df = genetic_data_df,
     final_pop = pop
   )

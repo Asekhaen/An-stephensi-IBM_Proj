@@ -49,21 +49,23 @@ create_n_per_patch <- function(patches, n_individual) {
 
 # make_allosome <- function(sex_alleles, individual) {
 #   
-#   matrix(
-#     c(sample(sex_alleles, size = individual, replace = TRUE)),
+#   cbind(
+#     sample(sex_alleles, size = individual, replace = TRUE),
+#     rep(0L, individual)
 #   )
-#   
 # }
+#   
+# 
+# make_allosome <- function(sex_alleles, individual) {
+#   sample(sex_alleles, size = individual, replace = TRUE)
+#   }
+
 
 
 make_allosome <- function(sex_alleles, individual) {
-  
-  cbind(
-    sample(sex_alleles, size = individual, replace = TRUE),
-    rep(0L, individual)
-  )
+  matrix(sample(sex_alleles, size = individual, replace = TRUE), 
+         nrow =individual, ncol = 1)
 }
-  
 
 
 # correlated allele selection (recombination) 
@@ -167,7 +169,7 @@ b_holt_survival <- function(density,
                               max_survival = 0.85,
                               dd_effect = 0.01) {
   # Or Zimmermann et al., 2021; ICES Journal of Marine Science (2021), 78(6) 2193 2203. doi:10.1093/icesjms/fsaa246
-   max_survival / (1 + dd_effect * density)
+   max_survival / (1 + dd_effect * density) # density = number of aquatic stage individuals
 }
 
 
@@ -302,7 +304,6 @@ home_drive_conv <- function(parent, chrom1, chrom2, prob1, prob2) {
   #     warning("NA detected in allele input!")
   # }
   
-  
   drive_wt <- ((loci1 == 0) & (loci2 == 2)) | ((loci1 == 2) & (loci2 == 0))
   
   drive_wt <- 1 * drive_wt  # convert logical to numeric
@@ -334,4 +335,106 @@ home_drive_conv <- function(parent, chrom1, chrom2, prob1, prob2) {
   
   return(parent)
 }
+
+
+#sex-shredder homing function
+shred_drive_conv <- function(parent, chrom1, chrom2, homing_prob) {
+  # browser()
+
+  loci1 <- parent[[chrom1]]
+  loci2 <- parent[[chrom2]]
+
+  # if (any(is.na(loci1)) | any(loci2)) {
+  #     warning("NA detected in allele input!")
+  # }
+
+  drive_wt <- ((loci1 == 0) & (loci2 == 2)) | ((loci1 == 2) & (loci2 == 0))
+
+  drive_wt <- 1 * drive_wt  # convert logical to numeric
+
+  # homing
+  homing  <- matrix(rbinom(nrow(loci1), 1, homing_prob), ncol(loci1), # drive conversion at each locus
+                    nrow = nrow(loci1), ncol = ncol(loci1))
+
+  loci1[loci1 == 0 & homing == 1 & drive_wt == 1] <- 2 # successful conversions
+  loci2[loci2 == 0 & homing == 1 & drive_wt == 1] <- 2
+
+
+  parent[[chrom1]]   <- loci1
+  parent[[chrom2]]   <- loci2
+
+  return(parent)
+}
+
+
+# this function follows the #sex-shredder homing function to complete the sex bias in the germline
+shred_x <- function(parent_auto, chrom1, chrom2, parent_allo, allosome1, allosome2, shred_prob) {
+
+  auto1 <- parent_auto[[chrom1]]
+  auto2 <- parent_auto[[chrom2]]
+
+  allo1 <- parent_allo[[allosome1]]
+  allo2 <- parent_allo[[allosome2]]
+
+  drive <- (auto1 == 2) & (auto2 == 2) 
+  
+  drive <- 1 * drive  # convert logical to numeric
+
+  # shredding
+  shredding  <- matrix(rbinom(nrow(allo1), 1, shred_prob), ncol(allo1), # shredding
+                       nrow = nrow(allo1), ncol = ncol(allo1))
+
+  allo1[allo1 == "X" & allo2 == "Y" & drive == 1 & shredding == 1] <- "Y" #shredding of X
+
+  parent_allo[[allosome1]] = allo1
+
+  return(parent_allo)
+}
+
+
+
+# #sex-shredder homing function
+# shred_drive_conv <- function(parent_auto, auto1, auto2, homing_prob, parent_allo, allo1, allo2, shred_prob) {
+#   # browser()
+#   
+#   loci_1 <- parent_auto[[auto1]] 
+#   loci_2 <- parent_auto[[auto2]] 
+#   
+#   loci_a <- parent_allo[[allo1]]
+#   loci_b <- parent_allo[[allo2]]
+#   
+#   
+#   # if (any(is.na(loci1)) | any(loci2)) {
+#   #     warning("NA detected in allele input!")
+#   # }
+#   
+#   drive_wt <- ((loci_1 == 0) & (loci_2 == 2)) | ((loci_1 == 2) & (loci_2 == 0))
+#   
+#   drive_wt <- 1 * drive_wt  # convert logical to numeric
+#   
+#   # homing
+#   homing  <- matrix(rbinom(nrow(loci_1), 1, homing_prob), ncol(loci_1), # drive conversion at each locus
+#                     nrow = nrow(loci_1), ncol = ncol(loci_1)) 
+#   
+#   loci_1[loci_1 == 0 & homing == 1 & drive_wt == 1] <- 2 # successful conversions
+#   loci_2[loci_2 == 0 & homing == 1 & drive_wt == 1] <- 2
+#   
+#   
+#   # shredding
+#   shredding  <- matrix(rbinom(nrow(loci_a), 1, shred_prob), ncol(loci_a), # shredding
+#                        nrow = nrow(loci_a), ncol = ncol(loci_a)) 
+#   
+#   loci_a[loci_a == "X" & loci_b == "Y" & drive == 1 & homing == 1 & shredding == 1] <- "Y" #shredding of X
+#   
+#   
+#   
+#   parent_auto[[auto1]] <- loci_1
+#   parent_auto[[auto2]] <- loci_2
+#   parent_allo[[allo1]] <- loci_a
+#   parent_allo[[allo2]] <- loci_b
+#   
+#   return(list(parent_auto, parent_allo))
+# }
+
+
 
