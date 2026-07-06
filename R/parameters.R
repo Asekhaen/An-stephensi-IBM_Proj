@@ -5,7 +5,7 @@
 set.seed(123)
 
 # simulation time steps
-sim_days <- 100 
+sim_days <- 50 
 
 #################################################
 # life history parameters
@@ -22,14 +22,14 @@ prob_wildtype2 = 0.05
 prob_wildtype1 = 1 - prob_wildtype2 
 stages <- c("egg", "larva", "pupa", "adult")
 dd_effect = 0.00001
-max_survival = 0.85
+max_survival = 0.90
 
 
 # the adult male population size at which the daily probability of mating is 
 # 0.5 (North and Godfray, Malar J (2018) 17:140)
-beta <- 200      
+beta <- 300      
 
-# Probability that a female find a blood meal
+# Probability that a female finds blood meal
 bloodmeal_prob <- 0.40                   
 
 # low degree-day threshold
@@ -78,34 +78,40 @@ sigma_dd <- c(egg = mean_sigma_egg,
 # Gene drive parameters
 #################################################
 
-
-n_loci <- 10   # number of loci
-release_freq = 0.1     # drive release frequency: percentage of adults
-cut_rate = 0.98         # gene cut_rate probability 
-homing_rate =  0.98
+release_day = 1
+n_loci <- 1   # number of loci
+per_release = 0.05      # drive release frequency: percentage of adults
 decay <- 0.5            #controls the rate at which the covariance between two loci decreases with distance
+
+
+# homing gene drive cleavage and conversion probabilities
+cut_rate = 0.98          
+homing_rate =  0.97
+
+# sex-distorting drive probabilities
+homing_prob = 0.95      
+shred_prob = 0.93 
+
 
 
 ################################################
 # environmental parameters
 ################################################
 
-# create coordinates and dipersal matrix for the patches/locations 
-
-# random location coordinates
 set.seed(2025)
 
 # coords <- as.data.frame(100 * matrix(runif(patches * 2), ncol = 2))
 # colnames(coords) <- c("x","y")
+
+# create random location coordinates and dispersal matrix for the patches/locations 
 
 coords <- data.frame(
   x = seq(0, 100, length.out = patches),
   y = rep(50, patches)
 )
 
-
-plot(coords, cex = 10)
-text(coords, labels = 1:patches)
+# plot(coords, cex = 10)
+# text(coords, labels = 1:patches)
 
 
 # dispersal matrix
@@ -134,17 +140,17 @@ adjacency_matrix <- step_stone(n_patches = patches,
 #                         mean = 80, sd = 10), 
 #                   nrow = sim_days, ncol = patches)
 
-# Or as suggested to prevent the significant impact on the population dynamics,
-# use a fixed value instead 
-
-temp_max <- 30
-temp_min <- 25
+# Or use a fixed value as suggested given we aren't interested in the effect of 
+# heterogeneous landscape and also to prevent the huge fluctuation on 
+# density-dependence mortality 
+temp_max <- 35
+temp_min <- 20
 humidity <- 83
 
 
 # size of the habitat in cm^2 to estimate the size of the habitat for aquatic 
 # stages (check with Nick)
-s_area <- 3333.2                   
+# s_area <- 3333.2                   
 
 
 
