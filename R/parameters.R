@@ -12,16 +12,16 @@ sim_days <- 50
 #################################################
 
 # Number of patches
-patches = 5     
+n_patches = 5     
 
 # Initial number of individuals per patch
 initial_pop = 1000                  # carrying capacity
-n_per_patch <- create_n_per_patch(patches, initial_pop)   # Initial number of individuals per patch
+n_per_patch <- create_n_per_patch(n_patches, initial_pop)   # Initial number of individuals per patch
 sex_alleles <- c("X", "Y") 
-prob_wildtype2 = 0.05 
+prob_wildtype2 = 0
 prob_wildtype1 = 1 - prob_wildtype2 
 stages <- c("egg", "larva", "pupa", "adult")
-dd_effect = 0.00001
+dd_effect = 0.00002
 max_survival = 0.90
 
 
@@ -86,6 +86,7 @@ decay <- 0.5            #controls the rate at which the covariance between two l
 
 # homing gene drive cleavage and conversion probabilities
 cut_rate = 0.98          
+
 homing_rate =  0.97
 
 # sex-distorting drive probabilities
@@ -100,27 +101,27 @@ shred_prob = 0.93
 
 set.seed(2025)
 
-# coords <- as.data.frame(100 * matrix(runif(patches * 2), ncol = 2))
+# coords <- as.data.frame(100 * matrix(runif(n_patches * 2), ncol = 2))
 # colnames(coords) <- c("x","y")
 
 # create random location coordinates and dispersal matrix for the patches/locations 
 
 coords <- data.frame(
-  x = seq(0, 100, length.out = patches),
-  y = rep(50, patches)
+  x = seq(0, 100, length.out = n_patches),
+  y = rep(50, n_patches)
 )
 
 # plot(coords, cex = 10)
-# text(coords, labels = 1:patches)
+# text(coords, labels = 1:n_patches)
 
 
 # dispersal matrix
 neg_exponet_model <- metapop (coords = coords, 
                                  lambda = lambda, 
                                  disp_prob = dispersal_prop)
+#tree_graph_network <- tree_graph(n_patches = n_patches, disp_prob = dispersal_prop)
 
-adjacency_matrix <- step_stone(n_patches = patches, 
-                               disp_prob = dispersal_prop)
+adjacency_matrix <- step_stone(n_patches = n_patches, disp_prob = dispersal_prop)
 
 
 

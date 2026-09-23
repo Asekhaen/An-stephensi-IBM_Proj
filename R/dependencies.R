@@ -34,7 +34,7 @@
 
 # functions, helper functions and parameters 
 source("R/sub_functions.R")
- source("R/IBM_functions.R")
+source("R/IBM_functions.R")
  
 packages <- c("ggplot2", 
               "dplyr",
@@ -46,17 +46,18 @@ packages <- c("ggplot2",
               "doParallel",
               "parallel",
               "foreach",
-              #"igraph",
-              #"furrr",       # multisession i.e. distribute work across many cores
-              #"progressr",
+              "igraph",
+              "furrr",       # multisession i.e. distribute work across many cores
+              "progressr",
               "patchwork",
               "lme4",
               "lmerTest",
-              #"sensitivity",
-              #"rsm",
-              #"randomForest",
-              #"ranger",
+              "sensitivity",
+              "rsm",
+              "randomForest",
+              "ranger",
               "truncnorm",
+              "gganimate",
               "data.table")   # shows the progress
 
 

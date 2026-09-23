@@ -20,7 +20,7 @@ source("R/dependencies.R")
 #            RUN   SIMULATION             #
 ###########################################
 
-output <- run_model (patches = patches,
+output <- run_model (n_patches = n_patches,
                      n_per_patch = n_per_patch,
                      coords = coords,
                      n_loci = n_loci,
@@ -34,14 +34,14 @@ output <- run_model (patches = patches,
                      decay = decay,
                      recomb = FALSE, # if TRUE = freely recombining, FALSE = no recombination
                      # lethal_effect = FALSE,
-                     drive_effect = "sterility", # "sterility" or "x_shredding". Default is "no effect" 
-                     drive_type = "homing",  #drive type: "homing", "toxin_antidote", or "x_shredder". Default is "Mendelian"
+                     drive_effect = "no effect", # "sterility" or "x_shredding" (set n_loci = 1). Default is "no effect" 
+                     drive_type = "mendelian",  #drive type: "homing" "Mendelian"
                      prob1 = cut_rate,
                      prob2 = homing_rate,
                      homing_prob = homing_prob,
                      shred_prob = shred_prob,
                      sim_days = sim_days,
-                     dispersal_type = adjacency_matrix,  #neg_exponet_model or adjacency matix
+                     dispersal_type = adjacency_matrix,  # adjacency_matrix, tree_graph_network, or neg_exponet_model
                      t_max = temp_max,
                      t_min = temp_min,
                      sigma,

@@ -13,6 +13,7 @@ load_libraries <- function(pack) {
 
 
 #initialise individuals in patches 
+
 create_n_per_patch <- function(patches, n_individual) {
   
   if (patches < 1) {
@@ -23,8 +24,10 @@ create_n_per_patch <- function(patches, n_individual) {
   }
   n_per_patch <- rep(0, patches)
   n_per_patch[1] <- n_individual
+  n_per_patch[2] <- n_individual
   return(n_per_patch)
 }
+
 
 
 
@@ -46,21 +49,6 @@ create_n_per_patch <- function(patches, n_individual) {
 
 
 # function to make allosome (sex chromosome)
-
-# make_allosome <- function(sex_alleles, individual) {
-#   
-#   cbind(
-#     sample(sex_alleles, size = individual, replace = TRUE),
-#     rep(0L, individual)
-#   )
-# }
-#   
-# 
-# make_allosome <- function(sex_alleles, individual) {
-#   sample(sex_alleles, size = individual, replace = TRUE)
-#   }
-
-
 
 make_allosome <- function(sex_alleles, individual) {
   matrix(sample(sex_alleles, size = individual, replace = TRUE), 
@@ -117,7 +105,7 @@ which_allele_fn <- function(exp_offspring, num_loci, loci_cov_matrix){
 # function to calculate growth degree-days accumulation 
 
 cal_dd <- function(daily_max_temp, daily_min_temp, T_base) {
-  max(0, (daily_max_temp+daily_min_temp)/2 - T_base)
+  max(0, ((daily_max_temp+daily_min_temp)/2) - T_base)
 }
 
 
@@ -164,16 +152,13 @@ prob_trans <- function(dd, mu, sigma) {
 
 
 
-# Density-dependent survival for the aquatic stage 
-b_holt_survival <- function(density, 
-                              max_survival = 0.85,
-                              dd_effect = 0.01) {
+#Density-dependent survival for the aquatic stage
+b_holt_survival <- function(density,
+                              max_survival,
+                              dd_effect) {
   # Or Zimmermann et al., 2021; ICES Journal of Marine Science (2021), 78(6) 2193 2203. doi:10.1093/icesjms/fsaa246
    max_survival / (1 + dd_effect * density) # density = number of aquatic stage individuals
 }
-
-
-
 
 
 # function to simulate oviposition frequency and batch sizes. mean eggs per female
@@ -228,16 +213,16 @@ expected_egg_laying_delay <- function(temp, expected_batch_size = 96.8) {
 
 sim_delays <- function(n, temp) {
   expected_delay <- expected_egg_laying_delay(temp)
-  delays_continuous <- rlnorm_mean_var(n,
+  realised_delay <- rlnorm_mean_var(n,
                                        expected_delay,
                                        sd = 0.5)
-  delays <- pmax(1, round(delays_continuous))
+  delays <- pmax(1, round(realised_delay))
   delays
 }
 
 
 
-#### negative exponential dispersal kernel  
+#### meta-population  
 
 metapop <- function(coords, lambda, disp_prob) {
   # dispersal matrix 
@@ -264,8 +249,7 @@ metapop <- function(coords, lambda, disp_prob) {
   return(dispersal_matrix)
 }
 
-
-# adjacency matrix 
+# stepping stone adjacency matrix 
 
 step_stone <- function(n_patches, disp_prob) {
   
@@ -288,8 +272,35 @@ step_stone <- function(n_patches, disp_prob) {
 }
 
 
+# stepping stone adjacency matrix with infinite population source
 
-
+tree_graph <- function(n_patches, disp_prob) {
+  
+  adjacency <- matrix(0, n_patches, n_patches)
+  # Connections from patch 1
+  adjacency[1, 2] <- 1
+  
+  # Bidirectional movement among patches 2–10 (stepping stone)
+  for (i in 2:(n_patches-1)){
+    # i -> i+1
+    adjacency[i, i + 1] <- 1
+    # i+1 -> i
+    adjacency[i + 1, i] <- 1
+  }
+  
+  # make these rows sum to 1 to get probability of moving to other patch
+  # *if* they left. This dispersal matrix gives the probability of the vector
+  # vector moving between patches
+  rel_dispersal_matrix <- sweep(adjacency, 1,
+                                rowSums(adjacency), FUN = "/")
+  
+  # normalise these to have the overall probability of dispersing to that patch,
+  # and add back the probability of remaining
+  dispersal_matrix <- disp_prob * rel_dispersal_matrix +
+    (1 - disp_prob) * diag(nrow(adjacency))
+  
+  return(dispersal_matrix)
+}
 
 
 #Homing gene drive function (conversion mechanism)
@@ -336,105 +347,31 @@ home_drive_conv <- function(parent, chrom1, chrom2, prob1, prob2) {
   return(parent)
 }
 
+# Sex_distorter drive that biases sex-ratio
 
-#sex-shredder homing function
-shred_drive_conv <- function(parent, chrom1, chrom2, homing_prob) {
+shred_x <- function(parent_allo, allosome1, allosome2, shred_prob) {
   # browser()
-
-  loci1 <- parent[[chrom1]]
-  loci2 <- parent[[chrom2]]
-
-  # if (any(is.na(loci1)) | any(loci2)) {
-  #     warning("NA detected in allele input!")
-  # }
-
-  drive_wt <- ((loci1 == 0) & (loci2 == 2)) | ((loci1 == 2) & (loci2 == 0))
-
-  drive_wt <- 1 * drive_wt  # convert logical to numeric
-
-  # homing
-  homing  <- matrix(rbinom(nrow(loci1), 1, homing_prob), ncol(loci1), # drive conversion at each locus
-                    nrow = nrow(loci1), ncol = ncol(loci1))
-
-  loci1[loci1 == 0 & homing == 1 & drive_wt == 1] <- 2 # successful conversions
-  loci2[loci2 == 0 & homing == 1 & drive_wt == 1] <- 2
-
-
-  parent[[chrom1]]   <- loci1
-  parent[[chrom2]]   <- loci2
-
-  return(parent)
-}
-
-
-# this function follows the #sex-shredder homing function to complete the sex bias in the germline
-shred_x <- function(parent_auto, chrom1, chrom2, parent_allo, allosome1, allosome2, shred_prob) {
-
-  auto1 <- parent_auto[[chrom1]]
-  auto2 <- parent_auto[[chrom2]]
-
   allo1 <- parent_allo[[allosome1]]
   allo2 <- parent_allo[[allosome2]]
-
-  drive <- (auto1 == 2) & (auto2 == 2) 
   
-  drive <- 1 * drive  # convert logical to numeric
-
-  # shredding
-  shredding  <- matrix(rbinom(nrow(allo1), 1, shred_prob), ncol(allo1), # shredding
-                       nrow = nrow(allo1), ncol = ncol(allo1))
-
-  allo1[allo1 == "X" & allo2 == "Y" & drive == 1 & shredding == 1] <- "Y" #shredding of X
-
-  parent_allo[[allosome1]] = allo1
-
+  # One shredding event per individual
+  shredding <- rbinom(nrow(allo1), 1, shred_prob)
+  
+  # Individuals where X is successfully shredded
+  shred <- allo1[, 1] == "X" &
+    allo2[, 1] == "Yd" &
+    shredding == 1
+  
+  # Convert X to Yd in allo1 only
+  allo1[shred, 1] <- "Yd"
+  
+  # Return modified allo1
+  parent_allo[[allosome1]] <- allo1
+  
   return(parent_allo)
 }
 
 
-
-# #sex-shredder homing function
-# shred_drive_conv <- function(parent_auto, auto1, auto2, homing_prob, parent_allo, allo1, allo2, shred_prob) {
-#   # browser()
-#   
-#   loci_1 <- parent_auto[[auto1]] 
-#   loci_2 <- parent_auto[[auto2]] 
-#   
-#   loci_a <- parent_allo[[allo1]]
-#   loci_b <- parent_allo[[allo2]]
-#   
-#   
-#   # if (any(is.na(loci1)) | any(loci2)) {
-#   #     warning("NA detected in allele input!")
-#   # }
-#   
-#   drive_wt <- ((loci_1 == 0) & (loci_2 == 2)) | ((loci_1 == 2) & (loci_2 == 0))
-#   
-#   drive_wt <- 1 * drive_wt  # convert logical to numeric
-#   
-#   # homing
-#   homing  <- matrix(rbinom(nrow(loci_1), 1, homing_prob), ncol(loci_1), # drive conversion at each locus
-#                     nrow = nrow(loci_1), ncol = ncol(loci_1)) 
-#   
-#   loci_1[loci_1 == 0 & homing == 1 & drive_wt == 1] <- 2 # successful conversions
-#   loci_2[loci_2 == 0 & homing == 1 & drive_wt == 1] <- 2
-#   
-#   
-#   # shredding
-#   shredding  <- matrix(rbinom(nrow(loci_a), 1, shred_prob), ncol(loci_a), # shredding
-#                        nrow = nrow(loci_a), ncol = ncol(loci_a)) 
-#   
-#   loci_a[loci_a == "X" & loci_b == "Y" & drive == 1 & homing == 1 & shredding == 1] <- "Y" #shredding of X
-#   
-#   
-#   
-#   parent_auto[[auto1]] <- loci_1
-#   parent_auto[[auto2]] <- loci_2
-#   parent_allo[[allo1]] <- loci_a
-#   parent_allo[[allo2]] <- loci_b
-#   
-#   return(list(parent_auto, parent_allo))
-# }
 
 
 
